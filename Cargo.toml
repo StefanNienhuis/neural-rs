@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "neural",
+    "neural-cli",
+    "neural-web"
+]
