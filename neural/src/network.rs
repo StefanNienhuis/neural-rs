@@ -1,6 +1,6 @@
 use crate::math;
 
-use ndarray::prelude::*;
+use nalgebra::{DMatrix, DVector};
 use rand;
 use rand_distr::{Distribution, Normal};
 
@@ -9,42 +9,41 @@ pub struct Network {
     pub shape: Vec<usize>,
 
     #[bincode(with_serde)]
-    pub weights: Vec<Array2<f64>>,
+    pub weights: Vec<DMatrix<f64>>,
 
     #[bincode(with_serde)]
-    pub biases: Vec<Array1<f64>>
+    pub biases: Vec<DVector<f64>>
 }
 
 impl Network {
 
-    pub fn zeros(shape: Vec<usize>) -> Network {
-        let weights: Vec<Array2<f64>> = shape[1..].iter().enumerate().map(|(i, n)| Array2::zeros((*n, shape[i]))).collect();
-        let biases: Vec<Array1<f64>> = shape[1..].iter().map(|n| Array1::zeros(*n)).collect();
-
+    pub fn zeros(shape: Vec<usize>) -> Self {
         return Network {
-            shape, weights, biases
+            weights: shape[1..].iter().enumerate().map(|(i, n)| DMatrix::<f64>::zeros(*n, shape[i])).collect(),
+            biases: shape[1..].iter().map(|n| DVector::<f64>::zeros(*n)).collect(),
+            shape
         }
     }
 
-    pub fn random(shape: Vec<usize>) -> Network {
-        let mut network = Network::zeros(shape);
+    pub fn random(shape: Vec<usize>) -> Self {
+        let mut network = Self::zeros(shape);
         let mut rng = rand::thread_rng();
         let normal = Normal::new(0.0, 1.0).expect("Could not create normal distribution");
 
-        network.weights = network.weights.iter().map(|weights| weights.map(|_| normal.sample(&mut rng))).collect();
-        network.biases = network.biases.iter().map(|biases| biases.map(|_| normal.sample(&mut rng))).collect();
+        network.weights = network.weights.iter().map(|matrix| matrix.map(|_| normal.sample(&mut rng))).collect();
+        network.biases = network.biases.iter().map(|vector| vector.map(|_| normal.sample(&mut rng))).collect();
 
         return network;
     }
 
     pub fn feed_forward(&self, input: Vec<f64>) -> Vec<f64> {
-        let mut activation = Array1::from_vec(input) as Array1<f64>;
+        let mut activation = DVector::from_vec(input) as DVector<f64>;
 
         for (weights, biases) in self.weights.iter().zip(self.biases.iter()) {
-            activation = (weights.dot(&activation) + biases).map(|x| math::sigmoid(*x));
+            activation = (weights * activation + biases).map(|x| math::sigmoid(x));
         }
 
-        return activation.to_vec();
+        return activation.iter().cloned().collect();
     }
 
 }

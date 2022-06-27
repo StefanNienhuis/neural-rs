@@ -1,26 +1,37 @@
+use std::fs;
 use crate::{idx, idx::{IDXImageFile, IDXLabelFile}};
 
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
+use std::{path::PathBuf};
 use bincode;
 use neural::network::Network;
 
 pub fn read_file(path: &PathBuf) -> Result<Vec::<u8>, String> {
     if !path.exists() {
-        return Err(format!("{} does not exist", path.display()));
+        return Err(format!("File does not exist"));
     }
 
-    let mut file = match File::open(path) {
-        Err(error) => return Err(format!("Couldn't open {}: {}", path.display(), error)),
-        Ok(file) => file
-    };
+    match fs::read(path) {
+        Err(error) => Err(format!("Couldn't read file: {}", error)),
+        Ok(data) => Ok(data)
+    }
+}
 
-    let mut data = Vec::<u8>::new();
+pub fn write_file(data: &Vec<u8>, path: &PathBuf, new: bool, extension: Option<&str>) -> Result<(), String> {
+    if new && path.exists() {
+        return Err(format!("File already exists"));
+    } else if !new && !path.exists() {
+        return Err(format!("File does not exist"));
+    } else if let Some(extension) = extension {
+        if path.extension().is_none() || path.extension().unwrap() != extension {
+            return Err(format!("File should end with '{}' extension", extension))
+        }
+    }
 
-    match file.read_to_end(&mut data) {
-        Err(error) => Err(format!("Couldn't read {}: {}", path.display(), error)),
-        Ok(_) => Ok(data)
+    match fs::write(path, data.as_slice()) {
+        Err(error) => {
+            Err(format!("{}", error))
+        },
+        Ok(_) => Ok(())
     }
 }
 
