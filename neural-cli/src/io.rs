@@ -1,10 +1,10 @@
-use crate::{Network, idx};
+use crate::{idx, idx::{IDXImageFile, IDXLabelFile}};
 
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use bincode;
-use crate::idx::{IDXImageFile, IDXLabelFile};
+use neural::network::Network;
 
 pub fn read_file(path: &PathBuf) -> Result<Vec::<u8>, String> {
     if !path.exists() {

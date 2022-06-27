@@ -1,14 +1,12 @@
 mod io;
 mod idx;
 
-use neural;
+use neural::network::Network;
 use bincode;
 use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
 use clap::{Parser, Subcommand};
-
-type Network = neural::network::Network3<784, 30, 10>;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -63,7 +61,7 @@ fn create(network_path: &PathBuf) {
         return;
     }
 
-    let network = Network::random();
+    let network = Network::random(vec![784, 30, 10]);
 
     let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
 
@@ -109,5 +107,7 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf) {
         Ok(labels) => labels
     };
 
-    println!("{} {} {}", network.biases.0.len(), images.image_count, labels.item_count);
+    let result = network.feed_forward(vec![0.5; 784]);
+
+    println!("{:?} {} {}", result, images.images.len(), labels.labels.len())
 }

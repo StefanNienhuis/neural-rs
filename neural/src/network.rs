@@ -1,45 +1,48 @@
 use crate::math;
 
-// A 3 layer neural network.
-// Until Rust supports array const generics, I can't think of a way to do this in a type safe manner.
+use ndarray::prelude::*;
+use rand::Rng;
+
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct Network3<const I: usize, const H0: usize, const O: usize> {
-    pub weights: ([[f64; I]; H0], [[f64; H0]; O]),
-    pub biases: ([f64; H0], [f64; O])
+pub struct Network {
+    pub shape: Vec<usize>,
+
+    #[bincode(with_serde)]
+    pub weights: Vec<Array2<f64>>,
+
+    #[bincode(with_serde)]
+    pub biases: Vec<Array1<f64>>
 }
 
-impl<const I: usize, const H0: usize, const O: usize> Network3<I, H0, O> {
+impl Network {
 
-    pub fn zeros() -> Self {
-        return Self {
-            weights: ([[0f64; I]; H0], [[0f64; H0]; O]),
-            biases: ([0f64; H0], [0f64; O]),
+    pub fn zeros(shape: Vec<usize>) -> Network {
+        let weights: Vec<Array2<f64>> = shape[1..].iter().enumerate().map(|(i, n)| Array2::zeros((*n, shape[i]))).collect();
+        let biases: Vec<Array1<f64>> = shape[1..].iter().map(|n| Array1::zeros(*n)).collect();
+
+        return Network {
+            shape, weights, biases
         }
     }
 
-    pub fn random() -> Self {
-        // I hate this solution, but I can't think of a better way.
-        let mut network = Self::zeros();
+    pub fn random(shape: Vec<usize>) -> Network {
+        let mut network = Network::zeros(shape);
+        let mut rng = rand::thread_rng();
 
-        math::fill_random(&mut network.biases.0);
-        math::fill_random(&mut network.biases.1);
-
-        for i in 0..network.weights.0.len() {
-            math::fill_random(&mut network.weights.0[i]);
-        }
-
-        for i in 0..network.weights.1.len() {
-            math::fill_random(&mut network.weights.1[i]);
-        }
+        network.weights = network.weights.iter().map(|weights| weights.map(|_| rng.gen())).collect();
+        network.biases = network.biases.iter().map(|biases| biases.map(|_| rng.gen())).collect();
 
         return network;
     }
 
-    pub fn feed_forward(&self, input: [f64; I]) -> [f64; O] {
-        let h0 = math::layer(input, self.weights.0, self.biases.0);
-        let output = math::layer(h0, self.weights.1, self.biases.1);
+    pub fn feed_forward(&self, input: Vec<f64>) -> Vec<f64> {
+        let mut activation = Array1::from_vec(input) as Array1<f64>;
 
-        return output;
+        for (weights, biases) in self.weights.iter().zip(self.biases.iter()) {
+            activation = (weights.dot(&activation) + biases).map(|x| math::sigmoid(*x));
+        }
+
+        return activation.to_vec();
     }
 
 }
