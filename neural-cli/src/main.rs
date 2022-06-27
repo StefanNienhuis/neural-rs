@@ -139,7 +139,7 @@ fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
             println!("Error while reading image: {}", error);
             return;
         }
-        Ok(network) => network.iter().map(|i| (*i as f64) / 255f64).collect()
+        Ok(network) => network.iter().map(|x| f64::from(*x) / 255.0).collect()
     };
 
     if image_data.len() != *network.shape.first().unwrap_or(&0) {
@@ -150,6 +150,6 @@ fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
     let output = network.feed_forward(image_data);
 
     for (i, p) in output.iter().enumerate() {
-        println!("{:>2}: {:.2}%", i + 1, p * 100f64);
+        println!("{:>2}: {:.2}%", i + 1, p * 100.0);
     }
 }

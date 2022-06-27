@@ -5,5 +5,6 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+rand_distr = "0.4.3"
 bincode = { version = "2.0.0-rc.1", features = ["serde"] }
 ndarray = { version = "0.15.4", features = ["serde"] }

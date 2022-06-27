@@ -1,7 +1,8 @@
 use crate::math;
 
 use ndarray::prelude::*;
-use rand::Rng;
+use rand;
+use rand_distr::{Distribution, Normal};
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct Network {
@@ -28,9 +29,10 @@ impl Network {
     pub fn random(shape: Vec<usize>) -> Network {
         let mut network = Network::zeros(shape);
         let mut rng = rand::thread_rng();
+        let normal = Normal::new(0.0, 1.0).expect("Could not create normal distribution");
 
-        network.weights = network.weights.iter().map(|weights| weights.map(|_| rng.gen())).collect();
-        network.biases = network.biases.iter().map(|biases| biases.map(|_| rng.gen())).collect();
+        network.weights = network.weights.iter().map(|weights| weights.map(|_| normal.sample(&mut rng))).collect();
+        network.biases = network.biases.iter().map(|biases| biases.map(|_| normal.sample(&mut rng))).collect();
 
         return network;
     }
