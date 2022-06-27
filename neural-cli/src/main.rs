@@ -37,7 +37,19 @@ enum Commands {
         // The label dataset file
         #[clap(short, long, value_parser, value_name = "FILE")]
         labels: PathBuf,
+    },
+
+    // Evaluate a neural network with the provided image
+    Evaluate {
+        // The neural network file
+        #[clap(short, long, value_parser, value_name = "FILE")]
+        network: PathBuf,
+
+        // The image file
+        #[clap(short, long, value_parser, value_name = "FILE")]
+        image: PathBuf,
     }
+
 }
 
 fn main() {
@@ -45,7 +57,8 @@ fn main() {
 
     match &cli.command {
         Commands::Create { network } => create(network),
-        Commands::Train { network, images, labels } => train(network, images, labels)
+        Commands::Train { network, images, labels } => train(network, images, labels),
+        Commands::Evaluate { network, image } => evaluate(network, image)
     }
 }
 
@@ -110,4 +123,33 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf) {
     let result = network.feed_forward(vec![0.5; 784]);
 
     println!("{:?} {} {}", result, images.images.len(), labels.labels.len())
+}
+
+fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
+    let network = match io::parse_network_file(network_path) {
+        Err(error) => {
+            println!("{}", error);
+            return;
+        }
+        Ok(network) => network
+    };
+
+    let image_data: Vec<f64> = match io::read_file(image_path) {
+        Err(error) => {
+            println!("Error while reading image: {}", error);
+            return;
+        }
+        Ok(network) => network.iter().map(|i| (*i as f64) / 255f64).collect()
+    };
+
+    if image_data.len() != *network.shape.first().unwrap_or(&0) {
+        println!("Incorrect image data length ({}) should be {}", image_data.len(), network.shape.first().unwrap_or(&0));
+        return;
+    }
+
+    let output = network.feed_forward(image_data);
+
+    for (i, p) in output.iter().enumerate() {
+        println!("{:>2}: {:.2}%", i + 1, p * 100f64);
+    }
 }
