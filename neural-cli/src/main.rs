@@ -172,16 +172,18 @@ fn test(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, co
         Ok(labels) => labels
     };
 
-    let mut test_data: Vec<(&Vec<Vec<u8>>, &u8)> = images.images.iter().zip(labels.labels.iter()).take(*count).collect();
+    let mut test_data: Vec<(&Vec<Vec<u8>>, &u8)> = images.images.iter().zip(labels.labels.iter()).collect();
     let mut rng = rand::thread_rng();
 
     test_data.shuffle(&mut rng);
 
+    let test_batch: Vec<&(&Vec<Vec<u8>>, &u8)> = test_data.iter().take(*count).collect();
+
     let mut correct_count = 0;
 
-    for (image, label) in test_data {
+    for (image, label) in test_batch {
         let pixels: Vec<f64> = image.iter().flatten().map(|x| f64::from(*x) / 255.0).collect();
-        let label: u8 = *label;
+        let label: u8 = **label;
 
         let result = network.feed_forward(pixels);
         let (i, p) = result.iter().enumerate().max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap()).unwrap();
