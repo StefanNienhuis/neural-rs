@@ -142,7 +142,7 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, l
     let training_data: Vec<(Vec<f64>, Vec<f64>)> =
         images.images.iter()
             // Create 1-dimensional f64 Vec from 2-dimensional u8 Vec
-            .map(|image| image.iter().flatten().map(|x| f64::from(*x)).collect::<Vec<f64>>())
+            .map(|image| image.iter().flatten().map(|x| f64::from(*x) / 255.0).collect::<Vec<f64>>())
             // Zip with expected output - expected output is a Vec of length 10 with only the expected output set to 1.0
             .zip(labels.labels.iter().map(|x| {
                 // one liner?

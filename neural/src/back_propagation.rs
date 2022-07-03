@@ -79,11 +79,11 @@ impl Network {
     ///
     /// Formula:
     ///
-    /// C = ((expected_output - output)^2)/2
+    /// C = ((output - expected_output)^2)/2
     ///
-    /// C' = (2(expected_output- output))/2 = expected_output - output
+    /// C' = (2(output - expected_output))/2 = expected_output - output
     fn cost_derivative(output: &DVector<f64>, expected_output: &DVector<f64>) -> DVector<f64> {
-        return expected_output - output;
+        return output - expected_output;
     }
 
 }
