@@ -1,11 +1,8 @@
 import App from './App.svelte';
-import init, * as wasm from 'wasm';
+import './main.css';
 
 const app = new App({
     target: document.getElementById('app')
 });
 
-await init();
-
 export default app;
-export { wasm };

@@ -7,5 +7,6 @@ export default defineConfig({
         fs: {
             allow: ['.', '../pkg']
         }
-    }
+    },
+    assetsInclude: ['**/*.nnet']
 });
