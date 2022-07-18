@@ -1,12 +1,11 @@
-use crate::math;
+use crate::{functions::*};
 
 use nalgebra::{DMatrix, DVector};
-use rand;
-use rand_distr::{Distribution, Normal};
+use rand::thread_rng;
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct Network {
-    pub shape: Vec<usize>,
+    pub(crate) layers: Vec<Layer>,
 
     #[bincode(with_serde)]
     pub weights: Vec<DMatrix<f64>>,
@@ -15,32 +14,51 @@ pub struct Network {
     pub biases: Vec<DVector<f64>>
 }
 
+#[derive(bincode::Encode, bincode::Decode)]
+pub struct Layer {
+    pub activation_function: ActivationFunction,
+    pub size: usize
+}
+
 impl Network {
 
-    pub fn zeros(shape: Vec<usize>) -> Self {
-        return Network {
-            weights: shape[1..].iter().enumerate().map(|(i, n)| DMatrix::<f64>::zeros(*n, shape[i])).collect(),
-            biases: shape[1..].iter().map(|n| DVector::<f64>::zeros(*n)).collect(),
-            shape
+    pub fn new() -> Self {
+        return Self {
+            layers: vec![],
+            weights: vec![],
+            biases: vec![]
         }
     }
 
-    pub fn random(shape: Vec<usize>) -> Self {
-        let mut network = Self::zeros(shape);
-        let mut rng = rand::thread_rng();
-        let normal = Normal::new(0.0, 1.0).expect("Could not create normal distribution");
+    pub fn add_layer(&mut self, size: usize, activation_function: ActivationFunction) {
+        if matches!(activation_function, ActivationFunction::Input) && self.layers.len() != 0 ||
+            !matches!(activation_function, ActivationFunction::Input) && self.layers.len() == 0 {
+            panic!("Input layer should be first")
+        }
 
-        network.weights = network.weights.iter().map(|matrix| matrix.map(|_| normal.sample(&mut rng))).collect();
-        network.biases = network.biases.iter().map(|vector| vector.map(|_| normal.sample(&mut rng))).collect();
+        if !matches!(activation_function, ActivationFunction::Input) {
+            let mut rng = thread_rng();
+            let previous_layer = self.layers.last().expect("No previous layer").size;
+            let weights = DMatrix::<f64>::zeros(size, previous_layer);
 
-        return network;
+            self.weights.push(weights.map(|_| activation_function.initialize_weight(previous_layer, &mut rng)));
+            self.biases.push(DVector::<f64>::zeros(size));
+        }
+
+        self.layers.push(Layer {
+            size, activation_function
+        });
+    }
+
+    pub fn shape(&self) -> Vec<usize> {
+        return self.layers.iter().map(|l| l.size).collect();
     }
 
     pub fn feed_forward(&self, input: Vec<f64>) -> Vec<f64> {
-        let mut activation = DVector::from_vec(input) as DVector<f64>;
+        let mut activation = DVector::from_vec(input.clone()) as DVector<f64>;
 
-        for (weights, biases) in self.weights.iter().zip(self.biases.iter()) {
-            activation = (weights * activation + biases).map(|x| math::sigmoid(x));
+        for (m, (weights, biases)) in self.weights.iter().zip(self.biases.iter()).enumerate() {
+            activation = (weights * activation + biases).map(|x| self.layers[m + 1].activation_function.function(x));
         }
 
         return activation.iter().cloned().collect();

@@ -1,12 +1,12 @@
 mod io;
 mod idx;
 
-use neural::network::Network;
 use bincode;
 use std::path::PathBuf;
 use std::{process};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ArgAction};
 use rand::{seq::SliceRandom};
+use neural::{network::Network, functions::*};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -25,6 +25,13 @@ enum Commands {
         /// The neural network file
         #[clap(short, long, value_name = "FILE")]
         network: PathBuf,
+
+        /// A layer that should be added to the network
+        ///
+        /// Specified with [activation_function]:[size].
+        /// Must start with input:[size]
+        #[clap(short, long="layer", action(ArgAction::Append), min_values(2), required(true))]
+        layers: Vec<String>
     },
 
     /// Train a neural network with the provided data set
@@ -58,11 +65,11 @@ enum Commands {
         epochs: usize,
 
         /// If provided, tests the network with these images at every epoch
-        #[clap(long, requires("test_labels"))]
+        #[clap(long, requires("test-labels"))]
         test_images: Option<PathBuf>,
 
         /// If provided, tests the network with these labels at every epoch
-        #[clap(long, requires("test_images"))]
+        #[clap(long, requires("test-images"))]
         test_labels: Option<PathBuf>
     },
 
@@ -106,15 +113,26 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Create { network } => create(network),
+        Commands::Create { network, layers } => create(network, layers),
         Commands::Train { network, images, labels, learning_rate, batch_size, batch_count, epochs, test_images, test_labels } => train(network, images, labels, learning_rate, batch_size, batch_count, epochs, test_images, test_labels, cli.verbose),
         Commands::Test { network, images, labels, count } => test(network, images, labels, count, cli.verbose),
         Commands::Evaluate { network, image } => evaluate(network, image)
     }
 }
 
-fn create(network_path: &PathBuf) {
-    let network = Network::random(vec![784, 30, 10]);
+fn create(network_path: &PathBuf, layers: &[String]) {
+    let mut network = Network::new();
+
+    for layer in layers {
+        let mut split = layer.split(":");
+        let activation_function_string = split.next().expect("Missing activation function");
+        let size_string = split.next().expect("Missing layer size");
+
+        let activation_function = ActivationFunction::from(activation_function_string).expect("Invalid activation function");
+        let size = size_string.parse::<usize>().unwrap_or_else(|error| panic!("Invalid layer size: {}", error));
+
+        network.add_layer(size, activation_function);
+    }
 
     let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
 
@@ -184,6 +202,8 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
 
     let mut rng = rand::thread_rng();
 
+    println!();
+
     for i in 0..*epochs {
         let mut training_data: Vec<(Vec<f64>, Vec<f64>)> =
             images.images.iter()
@@ -234,6 +254,8 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
 
             println!("Accuracy: {}/{} - {:.2}%", correct_count, test_data.len(), f64::from(correct_count) / (test_data.len() as f64) * 100.0);
         }
+
+        println!();
     }
 
     let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
@@ -330,8 +352,8 @@ fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
         Ok(network) => network.iter().map(|x| f64::from(*x) / 255.0).collect()
     };
 
-    if image_data.len() != *network.shape.first().unwrap_or(&0) {
-        println!("Incorrect image data length ({}) should be {}", image_data.len(), network.shape.first().unwrap_or(&0));
+    if image_data.len() != *network.shape().first().unwrap_or(&0) {
+        println!("Incorrect image data length ({}) should be {}", image_data.len(), network.shape().first().unwrap_or(&0));
         return;
     }
 

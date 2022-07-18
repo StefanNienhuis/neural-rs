@@ -30,7 +30,7 @@ impl Network {
     /// **Return value:** Uint32Array containing the sizes of each layer.
     #[wasm_bindgen(getter)]
     pub fn shape(&self) -> Vec<usize> {
-        return self.network.shape.clone();
+        return self.network.shape();
     }
 
     /// Returns the weights of the network.

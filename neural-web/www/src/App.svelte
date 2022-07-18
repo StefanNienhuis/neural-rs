@@ -10,7 +10,11 @@
     
         <p style="width: 100%; margin: 16px 0; text-align: center;">
             { #if results != null }
-                Result: { results[0][0] } ({Math.round(results[0][1] * 1000) / 10}%)
+                { #if results[0][1] > 0.3 }
+                    Result: { results[0][0] } ({Math.round(results[0][1] * 1000) / 10}%)
+                { :else }
+                    Failed to recognize a number
+                { /if }
             { :else }
                 Press detect to recognize the number
             { /if }
