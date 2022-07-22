@@ -55,7 +55,7 @@ impl Network {
     }
 
     pub fn feed_forward(&self, input: Vec<f64>) -> Vec<f64> {
-        let mut activation = DVector::from_vec(input.clone()) as DVector<f64>;
+        let mut activation = DVector::from_vec(input) as DVector<f64>;
 
         for (m, (weights, biases)) in self.weights.iter().zip(self.biases.iter()).enumerate() {
             activation = (weights * activation + biases).map(|x| self.layers[m + 1].activation_function.function(x));

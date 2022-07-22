@@ -1,5 +1,5 @@
 use std::fs;
-use crate::{Network, idx, idx::{IDXImageFile, IDXLabelFile}};
+use crate::{Network, idx::{self, IDXFile}};
 
 use std::{path::PathBuf};
 use bincode;
@@ -46,26 +46,14 @@ pub fn parse_network_file(path: &PathBuf) -> Result<Network, String> {
     }
 }
 
-pub fn parse_idx_image_file(path: &PathBuf) -> Result<IDXImageFile, String> {
+pub fn parse_idx_file(path: &PathBuf) -> Result<IDXFile, String> {
     let data = match read_file(path) {
         Err(error) => return Err(error),
         Ok(data) => data
     };
 
-    match idx::parse_idx_image_file(data) {
+    match idx::parse_idx_file(data) {
         Err(error) => Err(error),
         Ok(image_file) => Ok(image_file)
-    }
-}
-
-pub fn parse_idx_label_file(path: &PathBuf) -> Result<IDXLabelFile, String> {
-    let data = match read_file(path) {
-        Err(error) => return Err(error),
-        Ok(data) => data
-    };
-
-    match idx::parse_idx_label_file(data) {
-        Err(error) => Err(error),
-        Ok(label_file) => Ok(label_file)
     }
 }

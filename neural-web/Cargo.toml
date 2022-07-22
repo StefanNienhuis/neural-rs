@@ -20,7 +20,7 @@ wasm-bindgen = "0.2.63"
 # code size when deploying.
 console_error_panic_hook = { version = "0.1.6", optional = true }
 
-neural = { path = "../neural" }
+neural = { path = "../neural", features = [ ] }
 
-getrandom = { version = "0.2.7", features = ["js"] }
+getrandom = { version = "0.2.7", features = [ "js" ] }
 bincode = { version = "2.0.0-rc.1", features = [ "derive" ] }

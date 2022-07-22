@@ -1,61 +1,40 @@
 use std::io::{Cursor, Read};
 use byteorder::{BigEndian, ReadBytesExt};
 
-pub struct IDXImageFile {
-    pub image_count: u32,
-    pub row_count: u32,
-    pub column_count: u32,
-    pub images: Vec<Vec<Vec<u8>>>
+pub struct IDXFile {
+    pub shape: Vec<u32>,
+    pub items: Vec<Vec<u8>>
 }
 
-pub fn parse_idx_image_file(data: Vec<u8>) -> Result<IDXImageFile, String> {
+pub fn parse_idx_file(data: Vec<u8>) -> Result<IDXFile, String> {
     let mut cursor = Cursor::new(data);
 
     // Skip magic number
-    let _ = cursor.read_u32::<BigEndian>();
+    let _ = cursor.read_u16::<BigEndian>();
 
-    let image_count = cursor.read_u32::<BigEndian>().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
-    let row_count = cursor.read_u32::<BigEndian>().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
-    let column_count = cursor.read_u32::<BigEndian>().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
+    let data_type = cursor.read_u8().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
 
-    let mut pixels = Vec::new();
+    assert_eq!(data_type, 0x08, "Only IDX files with unsigned byte data types are supported.");
 
-    cursor.read_to_end(&mut pixels).or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
+    let dimensions = cursor.read_u8().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
 
-    let rows: Vec<Vec<u8>> = pixels.chunks(column_count as usize).map(|x| x.to_vec()).collect();
-    let images: Vec<Vec<Vec<u8>>> = rows.chunks(row_count as usize).map(|x| x.to_vec()).collect();
+    let mut shape = vec![];
 
-    if images.len() != image_count as usize {
-        return Err(format!("Error while decoding IDX: Image count ({}) is not equal to parsed image count ({})", image_count, images.len()))
+    for _ in 0..dimensions {
+        shape.push(cursor.read_u32::<BigEndian>().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?);
     }
 
-    return Ok(IDXImageFile {
-        image_count, row_count, column_count, images
-    });
-}
+    let mut items = Vec::new();
 
-pub struct IDXLabelFile {
-    pub item_count: u32,
-    pub labels: Vec<u8>
-}
+    cursor.read_to_end(&mut items).or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
 
-pub fn parse_idx_label_file(data: Vec<u8>) -> Result<IDXLabelFile, String> {
-    let mut cursor = Cursor::new(data);
+    let expected_count = shape.iter().fold(1, |a,x| a * x) as usize;
 
-    // Skip magic number
-    let _ = cursor.read_u32::<BigEndian>();
-
-    let item_count = cursor.read_u32::<BigEndian>().or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
-
-    let mut labels = Vec::new();
-
-    cursor.read_to_end(&mut labels).or_else(|error| Err(format!("Error while decoding IDX: {}", error)))?;
-
-    if labels.len() != item_count as usize {
-        return Err(format!("Error while decoding IDX: Item count ({}) is not equal to parsed label count ({})", item_count, labels.len()))
+    if items.len() != expected_count {
+        return Err(format!("Error while decoding IDX: Expected item count ({}) is not equal to parsed item count ({})", expected_count, items.len()))
     }
 
-    return Ok(IDXLabelFile {
-        item_count, labels
+    return Ok(IDXFile {
+        items: items.chunks(items.len() / shape[0].clone() as usize).map(|x| x.to_vec()).collect(), shape
     });
 }

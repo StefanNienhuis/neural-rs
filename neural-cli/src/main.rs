@@ -52,6 +52,10 @@ enum Commands {
         #[clap(short='r', long)]
         learning_rate: f64,
 
+        /// The thread count
+        #[clap(short='p', long, default_value = "1")]
+        thread_count: usize,
+
         /// The batch size
         #[clap(short='s', long, default_value = "10")]
         batch_size: usize,
@@ -114,7 +118,7 @@ fn main() {
 
     match &cli.command {
         Commands::Create { network, layers } => create(network, layers),
-        Commands::Train { network, images, labels, learning_rate, batch_size, batch_count, epochs, test_images, test_labels } => train(network, images, labels, learning_rate, batch_size, batch_count, epochs, test_images, test_labels, cli.verbose),
+        Commands::Train { network, images, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_images, test_labels } => train(network, images, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_images, test_labels, cli.verbose),
         Commands::Test { network, images, labels, count } => test(network, images, labels, count, cli.verbose),
         Commands::Evaluate { network, image } => evaluate(network, image)
     }
@@ -146,7 +150,7 @@ fn create(network_path: &PathBuf, layers: &[String]) {
 }
 
 fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
-         learning_rate: &f64, batch_size: &usize, batch_count: &Option<usize>, epochs: &usize,
+         learning_rate: &f64, thread_count: &usize, batch_size: &usize, batch_count: &Option<usize>, epochs: &usize,
          test_images: &Option<PathBuf>, test_labels: &Option<PathBuf>, verbose: bool) {
 
     let mut network = match io::parse_network_file(network_path) {
@@ -157,46 +161,55 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
         Ok(network) => network
     };
 
-    let images = match io::parse_idx_image_file(images_path) {
+    let images: Vec<Vec<_>> = match io::parse_idx_file(images_path) {
         Err(error) => {
             println!("Error while reading images: {}", error);
             return;
         }
-        Ok(images) => images
+        Ok(idx) => idx.items
     };
 
-    let labels = match io::parse_idx_label_file(labels_path) {
+    let labels = match io::parse_idx_file(labels_path) {
         Err(error) => {
             println!("Error while reading labels: {}", error);
             return;
         }
-        Ok(labels) => labels
+        Ok(idx) => idx.items
     };
 
-    let test_images = match test_images {
-        Some(test_images) => match io::parse_idx_image_file(test_images) {
+    let test_images: Option<Vec<Vec<_>>> = match test_images {
+        Some(test_images) => match io::parse_idx_file(test_images) {
             Err(error) => {
                 println!("Error while reading test images: {}", error);
                 return;
             }
-            Ok(images) => Some(images)
+            Ok(idx) => Some(idx.items)
         },
         None => None
     };
 
-    let test_labels = match test_labels {
-        Some(test_labels) => match io::parse_idx_label_file(test_labels) {
+    let test_labels: Option<Vec<Vec<_>>> = match test_labels {
+        Some(test_labels) => match io::parse_idx_file(test_labels) {
             Err(error) => {
                 println!("Error while reading test labels: {}", error);
                 return;
             }
-            Ok(labels) => Some(labels)
+            Ok(idx) => Some(idx.items)
         }
         None => None
     };
 
+    let image_len = images.len();
+
+    let training_data: Vec<(Vec<f64>, Vec<f64>)> =
+        images.into_iter()
+            .map(|image| image.into_iter().map(|x| f64::from(x) / 255.0).collect::<Vec<_>>())
+            // If expected output is a Vec with a single item, it is seen as an index. If it has multiple items, it is seen as an output.
+            .zip(outputs_from_labels(&network, labels).into_iter())
+            .collect();
+
     let mut test_data = match (test_images, test_labels) {
-        (Some(test_images), Some(test_labels)) => Some(test_images.images.iter().cloned().zip(test_labels.labels.iter().cloned()).collect::<Vec<(Vec<Vec<u8>>, u8)>>()),
+        (Some(test_images), Some(test_labels)) => Some(test_images.into_iter().zip(test_labels.into_iter()).collect::<Vec<(Vec<u8>, Vec<u8>)>>()),
         _ => None
     };
 
@@ -205,27 +218,16 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
     println!();
 
     for i in 0..*epochs {
-        let mut training_data: Vec<(Vec<f64>, Vec<f64>)> =
-            images.images.iter()
-                // Create 1-dimensional f64 Vec from 2-dimensional u8 Vec
-                .map(|image| image.iter().flatten().map(|x| f64::from(*x) / 255.0).collect::<Vec<f64>>())
-                // Zip with expected output - expected output is a Vec of length 10 with only the expected output set to 1.0
-                .zip(labels.labels.iter().map(|x| {
-                    // one liner?
-                    let mut output = vec![0.0; 10];
-                    output[usize::from(*x)] = 1.0;
-                    return output;
-                }))
-                .collect();
+        let mut training_data: Vec<(Vec<f64>, Vec<f64>)> = training_data.clone();
 
         training_data.shuffle(&mut rng);
 
-        training_data = training_data.iter().take(
+        training_data = training_data.into_iter().take(
             match batch_count {
                 Some(batch_count) => batch_size * batch_count,
-                None => images.image_count as usize
+                None => image_len
             }
-        ).map(|x| x.clone()).collect();
+        ).collect();
 
         println!(
             "Starting epoch {} training with {} batches of size {} and {} total samples",
@@ -238,21 +240,19 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
             training_data.len()
         );
 
-        let training_data_len = training_data.len();
-
-        network.stochastic_gradient_descent(training_data, *batch_size, *learning_rate, |progress| {
-            if verbose {
-                println!("{}/{} {:.2}%", progress, training_data_len / batch_size, (progress as f64 * *batch_size as f64) / (training_data_len as f64) * 100.0);
-            }
-        });
+        if thread_count > &1 {
+            network.parallel_stochastic_gradient_descent(training_data, *thread_count, *batch_size, *learning_rate);
+        } else {
+            network.stochastic_gradient_descent(training_data, *batch_size, *learning_rate);
+        }
 
         println!("Finished training for epoch {}.", i);
 
         if let Some(test_data) = &mut test_data {
             test_data.shuffle(&mut rng);
-            let correct_count = test_only(&network, test_data, verbose);
+            let accuracy = test_only(&network, test_data, verbose);
 
-            println!("Accuracy: {}/{} - {:.2}%", correct_count, test_data.len(), f64::from(correct_count) / (test_data.len() as f64) * 100.0);
+            println!("Accuracy: {:.2}%", accuracy * 100.0);
         }
 
         println!();
@@ -279,60 +279,73 @@ fn test(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, co
         Ok(network) => network
     };
 
-    let images = match io::parse_idx_image_file(images_path) {
+    let images: Vec<Vec<u8>> = match io::parse_idx_file(images_path) {
         Err(error) => {
             println!("Error while reading images: {}", error);
             return;
         }
-        Ok(images) => images
+        Ok(idx) => idx.items
     };
 
-    let labels = match io::parse_idx_label_file(labels_path) {
+    let labels: Vec<Vec<u8>> = match io::parse_idx_file(labels_path) {
         Err(error) => {
             println!("Error while reading labels: {}", error);
             return;
         }
-        Ok(labels) => labels
+        Ok(idx) => idx.items
     };
 
-    let count = count.unwrap_or(images.image_count as usize);
+    let count = count.unwrap_or(images.len());
 
-    let mut test_data: Vec<(Vec<Vec<u8>>, u8)> = images.images.iter().cloned().zip(labels.labels.iter().cloned()).collect();
+    let mut test_data: Vec<(Vec<u8>, Vec<u8>)> = images.iter().cloned().zip(labels.iter().cloned()).collect();
     let mut rng = rand::thread_rng();
 
     test_data.shuffle(&mut rng);
 
-    let test_batch: Vec<(Vec<Vec<u8>>, u8)> = test_data.iter().take(count).cloned().collect();
+    let test_batch: Vec<(Vec<u8>, Vec<u8>)> = test_data.iter().take(count).cloned().collect();
 
-    let correct_count = test_only(&network, &test_batch, verbose);
+    let accuracy = test_only(&network, &test_batch, verbose);
 
-    println!("Accuracy: {}/{} - {:.2}%", correct_count, count, f64::from(correct_count) / (count as f64) * 100.0);
+    println!("Accuracy: {:.2}%", accuracy * 100.0);
 }
 
-fn test_only(network: &Network, test_batch: &[(Vec<Vec<u8>>, u8)], verbose: bool) -> i32 {
-    let mut correct_count = 0;
+fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool) -> f64 {
+    let mut accuracy = 0.0;
 
     for (image, label) in test_batch {
-        let pixels: Vec<f64> = image.iter().flatten().map(|x| f64::from(*x) / 255.0).collect();
-        let label: u8 = *label;
+        let pixels: Vec<f64> = image.iter().map(|x| f64::from(*x) / 255.0).collect();
 
         let result = network.feed_forward(pixels);
-        let (i, p) = result.iter().enumerate().max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap()).unwrap();
 
-        if i != usize::from(label) {
-            if verbose {
-                println!("Wrong: {} = {} @ {:.2}%", label, i, p * 100.0);
+        if label.len() == 1 {
+            let label = label[0];
+            let (result, probability) = result.iter().enumerate().max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap()).unwrap();
+
+            if result != usize::from(label) {
+                if verbose {
+                    println!("Wrong: {} = {} @ {:.2}%", label, result, probability * 100.0);
+                }
+            } else {
+                if verbose {
+                    println!("Correct: {} = {} @ {:.2}%", label, result, probability * 100.0);
+                }
+
+                accuracy += 1.0;
             }
         } else {
-            if verbose {
-                println!("Correct: {} = {} @ {:.2}%", label, i, p * 100.0);
-            }
+            let expected_output = outputs_from_labels(network, vec![label.clone()]).into_iter().next().unwrap();
 
-            correct_count += 1;
+            let output_len = expected_output.len();
+
+            accuracy += result.into_iter().zip(expected_output.into_iter())
+                                          .map(|(r, e)| (r - e).abs()) // Calculate the absolute error
+                                          .fold(1.0, |a, x| a - (x / output_len as f64)); // Calculate the accuracy with the average error
         }
+
+
     }
 
-    return correct_count;
+    return accuracy / test_batch.len() as f64;
 }
 
 fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
@@ -362,4 +375,18 @@ fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
     for (i, p) in output.iter().enumerate() {
         println!("{:>2}: {:.2}%", i + 1, p * 100.0);
     }
+}
+
+fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<f64>> {
+    let labels_len = labels.len();
+
+    labels.into_iter().map(|label| {
+        return if labels_len == 1 && network.shape()[0] != 1 {
+            let mut output = vec![0.0; network.shape().last().unwrap().clone()];
+            output[usize::from(label[0])] = 1.0;
+            output
+        } else {
+            label.into_iter().map(|x| f64::from(x) / 255.0).collect::<Vec<_>>()
+        }
+    }).collect()
 }

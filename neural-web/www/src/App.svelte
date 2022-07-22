@@ -7,16 +7,24 @@
         </div>
     
         <DrawCanvas width={280} height={280} scaledSize={28} {editable} bind:getPixels={getPixels} bind:clear={clearCanvas} />
+
+        <div style="width: 100%; margin-top: 16px; text-align: center;">
+            <input type="radio" bind:group={type} id="digits" value="digits">
+            <label for="digits">Digits</label>
+
+            <input type="radio" bind:group={type} id="letters" value="letters">
+            <label for="letters">Letters</label>
+        </div>
     
         <p style="width: 100%; margin: 16px 0; text-align: center;">
             { #if results != null }
                 { #if results[0][1] > 0.3 }
-                    Result: { results[0][0] } ({Math.round(results[0][1] * 1000) / 10}%)
+                    Result: { type === 'digits' ? results[0][0] : String.fromCharCode(results[0][0] + 96) } ({Math.round(results[0][1] * 1000) / 10}%)
                 { :else }
                     Failed to recognize a number
                 { /if }
             { :else }
-                Press detect to recognize the number
+                Press detect to recognize the { type === 'digits' ? 'digit' : 'letter' }
             { /if }
         </p>
     
@@ -28,7 +36,7 @@
                 <thead>
                     <tr>
                         { #each results as [i] }
-                            <th>{i}</th>
+                            <th>{ type === 'digits' ? i : String.fromCharCode(i + 96) }</th>
                         { /each }
                     </tr>
                 </thead>
@@ -58,6 +66,8 @@
     let network: wasm.Network;
     let networkPicker: HTMLInputElement;
     let networkReader = new FileReader();
+
+    let type: 'digits' | 'letters' = 'digits';
 
     let results: [number, number][];
     let editable = true;
