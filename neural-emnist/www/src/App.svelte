@@ -1,7 +1,7 @@
 <div class="container">
     <div style="display: flex; flex-direction: column; width: 282px;">
         <div style="margin: 8px 0;">
-            <p bind:this={networkLabel} style="float: left; margin: 0;">Default network</p>
+            <p style="float: left; margin: 0;">{ networkName ?? 'Default network (digits)' }</p>
             <button on:click={upload} style="float: right;">Upload custom</button>
             <input type="file" bind:this={networkPicker} on:change={onNetworkPicked} style="display: none;" />
         </div>
@@ -62,7 +62,7 @@
     let getPixels: () => number[];
     let clearCanvas: () => void;
 
-    let networkLabel: HTMLParagraphElement;
+    let networkName: string | undefined;
     let network: wasm.Network;
     let networkPicker: HTMLInputElement;
     let networkReader = new FileReader();
@@ -92,7 +92,7 @@
     function onNetworkPicked() {
         let file = networkPicker.files[0];
 
-        networkLabel.innerText = file.name;
+        networkName = file.name;
         networkReader.readAsArrayBuffer(file);
     }
 
