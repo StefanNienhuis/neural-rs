@@ -1,8 +1,11 @@
 [package]
 name = "neural"
+description = "A general purpose neural network library"
 version = "0.1.0"
 edition = "2021"
-
+authors = [ "Stefan Nienhuis <stefan@nienhuisdevelopment.com>" ]
+license = "MIT"
+repository = "https://github.com/StefanNienhuis/neural-rs.git"
 
 [dependencies]
 rand = "0.8.5"

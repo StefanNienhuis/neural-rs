@@ -1,9 +1,11 @@
 [package]
 name = "neural-cli"
+description = "A CLI tool for the neural library that handles IDX file formats"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = [ "Stefan Nienhuis <stefan@nienhuisdevelopment.com>" ]
+license = "MIT"
+repository = "https://github.com/StefanNienhuis/neural-rs.git"
 
 [dependencies]
 neural = { path = "../neural" }

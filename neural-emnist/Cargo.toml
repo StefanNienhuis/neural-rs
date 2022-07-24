@@ -1,9 +1,11 @@
 [package]
 name = "neural-web"
+description = "A web interface for the neural library handling networks trained with EMNIST data"
 version = "0.1.0"
 edition = "2021"
-authors = ["Stefan Nienhuis <stefan@nienhuisdevelopment.com>"]
-description = "Web interface for the neural network"
+authors = [ "Stefan Nienhuis <stefan@nienhuisdevelopment.com>" ]
+license = "MIT"
+repository = "https://github.com/StefanNienhuis/neural-rs.git"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

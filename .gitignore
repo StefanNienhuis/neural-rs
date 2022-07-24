@@ -188,6 +188,6 @@ Cargo.lock
 *.pdb
 
 ### Custom ###
-neural-web/pkg
+neural-emnist/pkg
 data/
 .idea/

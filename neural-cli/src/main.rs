@@ -15,7 +15,7 @@ struct Cli {
     command: Commands,
 
     #[clap(short, long, global = true)]
-    verbose: bool
+    verbose: bool,
 }
 
 #[derive(Subcommand)]
@@ -23,7 +23,6 @@ enum Commands {
     /// Create a new neural network
     Create {
         /// The neural network file
-        #[clap(short, long, value_name = "FILE")]
         network: PathBuf,
 
         /// A layer that should be added to the network
@@ -41,15 +40,12 @@ enum Commands {
     /// Train a neural network with the provided data set
     Train {
         /// The neural network file
-        #[clap(short, long, value_name = "FILE")]
         network: PathBuf,
 
-        /// The image dataset file
-        #[clap(short, long, value_name = "FILE")]
-        images: PathBuf,
+        /// The input IDX dataset file
+        inputs: PathBuf,
 
-        /// The label dataset file
-        #[clap(short, long, value_name = "FILE")]
+        /// The label IDX dataset file
         labels: PathBuf,
 
         /// The learning rate
@@ -72,27 +68,24 @@ enum Commands {
         #[clap(short, long, default_value = "1")]
         epochs: usize,
 
-        /// If provided, tests the network with these images at every epoch
+        /// If provided, tests the network with these inputs at every epoch
         #[clap(long, requires("test-labels"))]
-        test_images: Option<PathBuf>,
+        test_inputs: Option<PathBuf>,
 
         /// If provided, tests the network with these labels at every epoch
-        #[clap(long, requires("test-images"))]
+        #[clap(long, requires("test-inputs"))]
         test_labels: Option<PathBuf>
     },
 
     /// Test a neural network with the provided data set
     Test {
         /// The neural network file
-        #[clap(short, long, value_name = "FILE")]
         network: PathBuf,
 
-        /// The image dataset file
-        #[clap(short, long, value_name = "FILE")]
-        images: PathBuf,
+        /// The input IDX dataset file
+        inputs: PathBuf,
 
-        /// The label dataset file
-        #[clap(short, long, value_name = "FILE")]
+        /// The label IDX dataset file
         labels: PathBuf,
 
         /// The amount of samples to test
@@ -100,15 +93,13 @@ enum Commands {
         count: Option<usize>
     },
 
-    /// Evaluate a neural network with the provided image
+    /// Evaluate a neural network with the provided input
     Evaluate {
         /// The neural network file
-        #[clap(short, long, value_name = "FILE")]
         network: PathBuf,
 
-        /// The image file
-        #[clap(short, long, value_name = "FILE")]
-        image: PathBuf,
+        /// The input file
+        input: PathBuf,
 
         // The output file
         #[clap(short, long, value_name = "FILE")]
@@ -126,9 +117,9 @@ fn main() {
 
     match &cli.command {
         Commands::Create { network, layers, cost_function } => create(network, layers, cost_function),
-        Commands::Train { network, images, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_images, test_labels } => train(network, images, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_images, test_labels, cli.verbose),
-        Commands::Test { network, images, labels, count } => test(network, images, labels, count, cli.verbose),
-        Commands::Evaluate { network, image, output } => evaluate(network, image, output)
+        Commands::Train { network, inputs, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_inputs, test_labels } => train(network, inputs, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_inputs, test_labels, cli.verbose),
+        Commands::Test { network, inputs, labels, count } => test(network, inputs, labels, count, cli.verbose),
+        Commands::Evaluate { network, input, output } => evaluate(network, input, output)
     }
 }
 
@@ -159,11 +150,11 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
     };
 }
 
-fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
+fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
          learning_rate: &f64, thread_count: &usize, batch_size: &usize, batch_count: &Option<usize>, epochs: &usize,
-         test_images: &Option<PathBuf>, test_labels: &Option<PathBuf>, verbose: bool) {
+         test_inputs: &Option<PathBuf>, test_labels: &Option<PathBuf>, verbose: bool) {
 
-    let mut network = match io::parse_network_file(network_path) {
+    let mut network = match io::read_network_file(network_path) {
         Err(error) => {
             println!("Error while reading network: {}", error);
             return;
@@ -171,15 +162,15 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
         Ok(network) => network
     };
 
-    let images: Vec<Vec<_>> = match io::parse_idx_file(images_path) {
+    let inputs: Vec<Vec<_>> = match io::read_idx_file(inputs_path) {
         Err(error) => {
-            println!("Error while reading images: {}", error);
+            println!("Error while reading inputs: {}", error);
             return;
         }
         Ok(idx) => idx.items
     };
 
-    let labels = match io::parse_idx_file(labels_path) {
+    let labels = match io::read_idx_file(labels_path) {
         Err(error) => {
             println!("Error while reading labels: {}", error);
             return;
@@ -187,10 +178,10 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
         Ok(idx) => idx.items
     };
 
-    let test_images: Option<Vec<Vec<_>>> = match test_images {
-        Some(test_images) => match io::parse_idx_file(test_images) {
+    let test_inputs: Option<Vec<Vec<_>>> = match test_inputs {
+        Some(test_inputs) => match io::read_idx_file(test_inputs) {
             Err(error) => {
-                println!("Error while reading test images: {}", error);
+                println!("Error while reading test inputs: {}", error);
                 return;
             }
             Ok(idx) => Some(idx.items)
@@ -199,7 +190,7 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
     };
 
     let test_labels: Option<Vec<Vec<_>>> = match test_labels {
-        Some(test_labels) => match io::parse_idx_file(test_labels) {
+        Some(test_labels) => match io::read_idx_file(test_labels) {
             Err(error) => {
                 println!("Error while reading test labels: {}", error);
                 return;
@@ -209,17 +200,17 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
         None => None
     };
 
-    let image_len = images.len();
+    let inputs_len = inputs.len();
 
     let training_data: Vec<(Vec<f64>, Vec<f64>)> =
-        images.into_iter()
-            .map(|image| image.into_iter().map(|x| f64::from(x) / 255.0).collect::<Vec<_>>())
+        inputs.into_iter()
+            .map(|input| input.into_iter().map(|x| f64::from(x) / 255.0).collect::<Vec<_>>())
             // If expected output is a Vec with a single item, it is seen as an index. If it has multiple items, it is seen as an output.
             .zip(outputs_from_labels(&network, labels).into_iter())
             .collect();
 
-    let mut test_data = match (test_images, test_labels) {
-        (Some(test_images), Some(test_labels)) => Some(test_images.into_iter().zip(test_labels.into_iter()).collect::<Vec<(Vec<u8>, Vec<u8>)>>()),
+    let mut test_data = match (test_inputs, test_labels) {
+        (Some(test_inputs), Some(test_labels)) => Some(test_inputs.into_iter().zip(test_labels.into_iter()).collect::<Vec<(Vec<u8>, Vec<u8>)>>()),
         _ => None
     };
 
@@ -235,7 +226,7 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
         training_data = training_data.into_iter().take(
             match batch_count {
                 Some(batch_count) => batch_size * batch_count,
-                None => image_len
+                None => inputs_len
             }
         ).collect();
 
@@ -280,8 +271,8 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
 
 }
 
-fn test(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, count: &Option<usize>, verbose: bool) {
-    let network = match io::parse_network_file(network_path) {
+fn test(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf, count: &Option<usize>, verbose: bool) {
+    let network = match io::read_network_file(network_path) {
         Err(error) => {
             println!("Error while reading network: {}", error);
             return;
@@ -289,15 +280,15 @@ fn test(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, co
         Ok(network) => network
     };
 
-    let images: Vec<Vec<u8>> = match io::parse_idx_file(images_path) {
+    let inputs: Vec<Vec<u8>> = match io::read_idx_file(inputs_path) {
         Err(error) => {
-            println!("Error while reading images: {}", error);
+            println!("Error while reading inputs: {}", error);
             return;
         }
         Ok(idx) => idx.items
     };
 
-    let labels: Vec<Vec<u8>> = match io::parse_idx_file(labels_path) {
+    let labels: Vec<Vec<u8>> = match io::read_idx_file(labels_path) {
         Err(error) => {
             println!("Error while reading labels: {}", error);
             return;
@@ -305,9 +296,9 @@ fn test(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, co
         Ok(idx) => idx.items
     };
 
-    let count = count.unwrap_or(images.len());
+    let count = count.unwrap_or(inputs.len());
 
-    let mut test_data: Vec<(Vec<u8>, Vec<u8>)> = images.iter().cloned().zip(labels.iter().cloned()).collect();
+    let mut test_data: Vec<(Vec<u8>, Vec<u8>)> = inputs.iter().cloned().zip(labels.iter().cloned()).collect();
     let mut rng = rand::thread_rng();
 
     test_data.shuffle(&mut rng);
@@ -322,8 +313,8 @@ fn test(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf, co
 fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool) -> f64 {
     let mut accuracy = 0.0;
 
-    for (image, label) in test_batch {
-        let pixels: Vec<f64> = image.iter().map(|x| f64::from(*x) / 255.0).collect();
+    for (input, label) in test_batch {
+        let pixels: Vec<f64> = input.iter().map(|x| f64::from(*x) / 255.0).collect();
 
         let result = network.feed_forward(pixels);
 
@@ -358,8 +349,8 @@ fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool
     return accuracy / test_batch.len() as f64;
 }
 
-fn evaluate(network_path: &PathBuf, image_path: &PathBuf, output_path: &Option<PathBuf>) {
-    let network = match io::parse_network_file(network_path) {
+fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<PathBuf>) {
+    let network = match io::read_network_file(network_path) {
         Err(error) => {
             println!("{}", error);
             return;
@@ -367,20 +358,20 @@ fn evaluate(network_path: &PathBuf, image_path: &PathBuf, output_path: &Option<P
         Ok(network) => network
     };
 
-    let image_data: Vec<f64> = match io::read_file(image_path) {
+    let input_data: Vec<f64> = match io::read_file(input_path) {
         Err(error) => {
-            println!("Error while reading image: {}", error);
+            println!("Error while reading input: {}", error);
             return;
         }
         Ok(network) => network.iter().map(|x| f64::from(*x) / 255.0).collect()
     };
 
-    if image_data.len() != *network.shape().first().unwrap_or(&0) {
-        println!("Incorrect image data length ({}) should be {}", image_data.len(), network.shape().first().unwrap_or(&0));
+    if input_data.len() != *network.shape().first().unwrap_or(&0) {
+        println!("Incorrect input data length ({}) should be {}", input_data.len(), network.shape().first().unwrap_or(&0));
         return;
     }
 
-    let output = network.feed_forward(image_data);
+    let output = network.feed_forward(input_data);
 
     if let Some(output_path) = output_path {
         match io::write_file(&output.into_iter().map(|x| (x * 255.0) as u8).collect(), output_path, true, None) {

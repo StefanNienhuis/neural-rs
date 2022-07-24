@@ -4,7 +4,7 @@ use crate::{Network, idx::{self, IDXFile}};
 use std::{path::PathBuf};
 use bincode;
 
-pub fn read_file(path: &PathBuf) -> Result<Vec::<u8>, String> {
+pub fn read_file(path: &PathBuf) -> Result<Vec<u8>, String> {
     if !path.exists() {
         return Err(format!("File does not exist"));
     }
@@ -34,7 +34,7 @@ pub fn write_file(data: &Vec<u8>, path: &PathBuf, new: bool, extension: Option<&
     }
 }
 
-pub fn parse_network_file(path: &PathBuf) -> Result<Network, String> {
+pub fn read_network_file(path: &PathBuf) -> Result<Network, String> {
     let data = match read_file(path) {
         Err(error) => return Err(error),
         Ok(data) => data
@@ -46,7 +46,7 @@ pub fn parse_network_file(path: &PathBuf) -> Result<Network, String> {
     }
 }
 
-pub fn parse_idx_file(path: &PathBuf) -> Result<IDXFile, String> {
+pub fn read_idx_file(path: &PathBuf) -> Result<IDXFile, String> {
     let data = match read_file(path) {
         Err(error) => return Err(error),
         Ok(data) => data
@@ -54,6 +54,6 @@ pub fn parse_idx_file(path: &PathBuf) -> Result<IDXFile, String> {
 
     match idx::parse_idx_file(data) {
         Err(error) => Err(error),
-        Ok(image_file) => Ok(image_file)
+        Ok(idx) => Ok(idx)
     }
 }
