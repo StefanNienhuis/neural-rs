@@ -1,3 +1,7 @@
+*English - [Dutch](README.nl-NL.md)*
+
+---
+
 # neural-rs
 
 A neural network project written in Rust, written for a school project. 
@@ -5,7 +9,7 @@ A neural network project written in Rust, written for a school project.
 ## Components
 
  - `neural` - a general purpose neural network library
- - `neural-cli` - a CLI tool for the neural library that handles IDX file formats
+ - `neural-cli` - a CLI tool for the neural library that handles IDX dataset file formats
  - `neural-emnsit` - a web interface for the neural library handling networks trained with EMNIST data
 
 *Notice:* This is my first large project written in Rust, so there's probably a lot of optimization to be done.
@@ -18,7 +22,7 @@ It can be compiled to WebAssembly with `wasm-pack build --target web`.
 
 `neural-emnist/www` provides a Svelte based web interface that can detect digits and letters. The default digits network is a network trained with EMNIST digits with a 99.06% accuracy on the test dataset. The default letters network is a network trained with EMNIST letters with a 90.02% accuracy on the test dataset. It uses the `pkg/` directory from the WebAssembly build as a dependency.
 
-After pressing detect, the bounding box of the drawing is calculated and a square is extracted, then down sampled to a 28x28 pixel image using bilinear interpolation. Drawing on a 28x28 canvas directly resulted in lower accuracy, as the digit would not be centered at all times.
+After pressing detect, the bounding box of the drawing is calculated and a square is extracted, then down sampled to a 28x28 pixel image using bilinear interpolation. Drawing on a 28x28 canvas directly resulted in lower accuracy, as the drawing would not be centered at all times.
 
 ## Example usage
 
@@ -26,7 +30,7 @@ After pressing detect, the bounding box of the drawing is calculated and a squar
 
 *A live version is available at [stefannienhuis.github.io/neural-rs/neural-emnist/](https://stefannienhuis.github.io/neural-rs/neural-emnist/).*
 
-Create a new network with 784 inputs and 10 outputs, the layers in between and cost function can be customized.
+Create a new network with 784 inputs and 10 outputs. The layers in between and cost function can be customized.
 ```shell
 neural-cli create -l input:784 relu:300 relu:50 sigmoid:10 -c mean-squared-error ./network.nnet
 ```
@@ -36,7 +40,7 @@ Train the network with the EMNIST digits dataset (epochs: 30, learning rate: 0.3
 neural-cli train -e 30 -r 0.3 --test-inputs ./test-images --test-labels ./test-labels ./network.nnet ./train-images ./train-labels
 ```
 
-Afterwards, open the neural-emnist web interface and upload your newly trained network. Draw a few digits to see how well it's working.
+Afterwards, open the `neural-emnist` web interface and upload your newly trained network. Draw a few digits to see how well it's working.
 
 If everything is working, play around with the hyperparameters (layers, epochs, learning rate etc...) a bit to see how this influences the accuracy.
 
