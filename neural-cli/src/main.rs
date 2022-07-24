@@ -31,7 +31,11 @@ enum Commands {
         /// Specified with [activation_function]:[size].
         /// Must start with input:[size]
         #[clap(short, long="layer", action(ArgAction::Append), min_values(2), required(true))]
-        layers: Vec<String>
+        layers: Vec<String>,
+
+        /// The cost function
+        #[clap(short, long)]
+        cost_function: String
     },
 
     /// Train a neural network with the provided data set
@@ -105,6 +109,10 @@ enum Commands {
         /// The image file
         #[clap(short, long, value_name = "FILE")]
         image: PathBuf,
+
+        // The output file
+        #[clap(short, long, value_name = "FILE")]
+        output: Option<PathBuf>
     }
 
 }
@@ -117,15 +125,17 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Create { network, layers } => create(network, layers),
+        Commands::Create { network, layers, cost_function } => create(network, layers, cost_function),
         Commands::Train { network, images, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_images, test_labels } => train(network, images, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_images, test_labels, cli.verbose),
         Commands::Test { network, images, labels, count } => test(network, images, labels, count, cli.verbose),
-        Commands::Evaluate { network, image } => evaluate(network, image)
+        Commands::Evaluate { network, image, output } => evaluate(network, image, output)
     }
 }
 
-fn create(network_path: &PathBuf, layers: &[String]) {
-    let mut network = Network::new();
+fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
+    let cost_function = CostFunction::from(cost_function.as_str()).unwrap_or_else(|| panic!("Invalid cost function: {}", cost_function));
+
+    let mut network = Network::new(cost_function);
 
     for layer in layers {
         let mut split = layer.split(":");
@@ -231,7 +241,7 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
 
         println!(
             "Starting epoch {} training with {} batches of size {} and {} total samples",
-            i,
+            i + 1,
             match batch_count {
                 Some(batch_count) => batch_count.to_string(),
                 None => "all".to_string()
@@ -246,7 +256,7 @@ fn train(network_path: &PathBuf, images_path: &PathBuf, labels_path: &PathBuf,
             network.stochastic_gradient_descent(training_data, *batch_size, *learning_rate);
         }
 
-        println!("Finished training for epoch {}.", i);
+        println!("Finished training for epoch {}.", i + 1);
 
         if let Some(test_data) = &mut test_data {
             test_data.shuffle(&mut rng);
@@ -348,7 +358,7 @@ fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool
     return accuracy / test_batch.len() as f64;
 }
 
-fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
+fn evaluate(network_path: &PathBuf, image_path: &PathBuf, output_path: &Option<PathBuf>) {
     let network = match io::parse_network_file(network_path) {
         Err(error) => {
             println!("{}", error);
@@ -372,13 +382,20 @@ fn evaluate(network_path: &PathBuf, image_path: &PathBuf) {
 
     let output = network.feed_forward(image_data);
 
-    for (i, p) in output.iter().enumerate() {
-        println!("{:>2}: {:.2}%", i + 1, p * 100.0);
+    if let Some(output_path) = output_path {
+        match io::write_file(&output.into_iter().map(|x| (x * 255.0) as u8).collect(), output_path, true, None) {
+            Err(error) => println!("Error while saving output: {}", error),
+            Ok(_) => println!("Saved output to {}", output_path.display())
+        }
+    } else {
+        for (i, p) in output.iter().enumerate() {
+            println!("{:>2}: {:.2}%", i + 1, p * 100.0);
+        }
     }
 }
 
 fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<f64>> {
-    let labels_len = labels.len();
+    let labels_len = labels[0].len();
 
     labels.into_iter().map(|label| {
         return if labels_len == 1 && network.shape()[0] != 1 {

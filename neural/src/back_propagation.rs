@@ -119,8 +119,8 @@ impl Network {
         let output_layer = activations.len() - 1;
 
         // Calculate the error in the output layer
-        let mut error: DVector<f64> = Self::
-            cost_derivative(&activations[output_layer], &expected_output)
+        let mut error: DVector<f64> = self.cost_function
+            .derivative(&activations[output_layer], &expected_output)
             .component_mul(&weighted_inputs[output_layer].map(|x| self.layers.last().expect("No output layer").activation_function.derivative(x)));
 
         weight_gradients[self.layers.len() - 2] = &error * activations[output_layer - 1].transpose();
@@ -135,17 +135,6 @@ impl Network {
         }
 
         return (weight_gradients, bias_gradients);
-    }
-
-    /// Returns the vector of partial derivatives of the cost function with respect to the expected output.
-    ///
-    /// Formula:
-    ///
-    /// C = ((output - expected_output)^2)/2
-    ///
-    /// C' = (2(output - expected_output))/2 =  output - expected_output
-    fn cost_derivative(output: &DVector<f64>, expected_output: &DVector<f64>) -> DVector<f64> {
-        return output - expected_output;
     }
 
 }

@@ -6,6 +6,7 @@ use rand::thread_rng;
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct Network {
     pub(crate) layers: Vec<Layer>,
+    pub cost_function: CostFunction,
 
     #[bincode(with_serde)]
     pub weights: Vec<DMatrix<f64>>,
@@ -22,9 +23,10 @@ pub struct Layer {
 
 impl Network {
 
-    pub fn new() -> Self {
+    pub fn new(cost_function: CostFunction) -> Self {
         return Self {
             layers: vec![],
+            cost_function,
             weights: vec![],
             biases: vec![]
         }
