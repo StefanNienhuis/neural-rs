@@ -39,3 +39,7 @@ Afterwards, open the neural-emnist web interface and upload your newly trained n
 If everything is working, play around with the hyperparameters (layers, epochs, learning rate etc...) a bit to see how this influences the accuracy.
 
 The digits dataset can also be replaced by the letters dataset, for a-z detection. The output layer should be of size 27, as the labels are indexed starting at 1. Output 0 can be ignored.
+
+## Credits
+
+A large part of the backpropagation algorithm is based on the video series [*Neural networks*](https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) created by 3Blue1Brown and the book [*Neural Networks and Deep Learning*](http://neuralnetworksanddeeplearning.com/index.html) written by Michael Nielsen. 
