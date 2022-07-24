@@ -1,7 +1,7 @@
 <div class="container">
     <div style="display: flex; flex-direction: column; width: 282px;">
         <div style="margin: 8px 0;">
-            <p style="float: left; margin: 0;">{ networkName ?? 'Default network (digits)' }</p>
+            <p style="float: left; margin: 0;">{ networkName ?? `Default network (${type})` }</p>
             <button on:click={upload} style="float: right;">Upload custom</button>
             <input type="file" bind:this={networkPicker} on:change={onNetworkPicked} style="display: none;" />
         </div>
@@ -21,14 +21,14 @@
                 { #if results[0][1] > 0.3 }
                     Result: { type === 'digits' ? results[0][0] : String.fromCharCode(results[0][0] + 96) } ({Math.round(results[0][1] * 1000) / 10}%)
                 { :else }
-                    Failed to recognize a number
+                    Failed to recognize a { type === 'digits' ? 'digit' : 'letter' }
                 { /if }
             { :else }
                 Press detect to recognize the { type === 'digits' ? 'digit' : 'letter' }
             { /if }
         </p>
     
-        <button on:click={detect} disabled={network == null || !editable}>Detect</button>
+        <button on:click={detect} disabled={!editable}>Detect</button>
         <button on:click={clear} style="margin-top: 4px; margin-bottom: 16px;">Clear</button>
     
         { #if results != null }
@@ -57,7 +57,9 @@
     import wasmInit, * as wasm from 'wasm';
 
     import DrawCanvas from './DrawCanvas.svelte';
-    import defaultNetwork from '../assets/default.nnet';
+
+    import defaultDigitsPath from '../assets/default-digits.nnet';
+    import defaultLettersPath from '../assets/default-letters.nnet';
 
     let getPixels: () => number[];
     let clearCanvas: () => void;
@@ -66,6 +68,9 @@
     let network: wasm.Network;
     let networkPicker: HTMLInputElement;
     let networkReader = new FileReader();
+
+    let defaultDigits: wasm.Network;
+    let defaultLetters: wasm.Network;
 
     let type: 'digits' | 'letters' = 'digits';
 
@@ -77,10 +82,15 @@
 
         await wasmInit();
 
-        fetch(defaultNetwork)
+        fetch(defaultDigitsPath)
             .then((response) => response.arrayBuffer())
-            .then((buffer) => network = new wasm.Network(new Uint8Array(buffer)))
-            .catch((error) => console.error(`Error while loading default network: ${error}`));
+            .then((buffer) => defaultDigits = new wasm.Network(new Uint8Array(buffer)))
+            .catch((error) => console.error(`Error while loading default digits network: ${error}`));
+
+        fetch(defaultLettersPath)
+            .then((response) => response.arrayBuffer())
+            .then((buffer) => defaultLetters = new wasm.Network(new Uint8Array(buffer)))
+            .catch((error) => console.error(`Error while loading default letters network: ${error}`));
     });
 
     // Neural network
@@ -107,7 +117,7 @@
         let pixels = getPixels();
         editable = false;
         
-        results = Array.from(network.feed_forward(new Float64Array(pixels)).entries());
+        results = Array.from((network || (type == 'digits' ? defaultDigits : defaultLetters)).feed_forward(new Float64Array(pixels)).entries());
 
         results = results.sort(([, a], [, b]) => b - a).slice(0, 5);
     }

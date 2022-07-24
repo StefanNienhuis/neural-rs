@@ -16,13 +16,15 @@ A neural network project written in Rust, written for a school project.
 
 It can be compiled to WebAssembly with `wasm-pack build --target web`.
 
-`neural-emnist/www` provides a Svelte based web interface that can detect digits and letters. The default network is a network trained with EMNIST digits with a 99.06% accuracy on the test dataset. It uses the `pkg/` directory from the WebAssembly build as a dependency.
+`neural-emnist/www` provides a Svelte based web interface that can detect digits and letters. The default digits network is a network trained with EMNIST digits with a 99.06% accuracy on the test dataset. The default letters network is a network trained with EMNIST letters with a 90.02% accuracy on the test dataset. It uses the `pkg/` directory from the WebAssembly build as a dependency.
 
 After pressing detect, the bounding box of the drawing is calculated and a square is extracted, then down sampled to a 28x28 pixel image using bilinear interpolation. Drawing on a 28x28 canvas directly resulted in lower accuracy, as the digit would not be centered at all times.
 
 ## Example usage
 
 ### EMNIST digits
+
+*A live version is available at [stefannienhuis.github.io/neural-rs/neural-emnist/](https://stefannienhuis.github.io/neural-rs/neural-emnist/).*
 
 Create a new network with 784 inputs and 10 outputs, the layers in between and cost function can be customized.
 ```shell
