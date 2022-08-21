@@ -1,4 +1,4 @@
-use crate::{functions::*};
+use crate::{functions::*, Float};
 
 use nalgebra::{DMatrix, DVector};
 use rand::thread_rng;
@@ -9,10 +9,10 @@ pub struct Network {
     pub cost_function: CostFunction,
 
     #[bincode(with_serde)]
-    pub weights: Vec<DMatrix<f64>>,
+    pub weights: Vec<DMatrix<Float>>,
 
     #[bincode(with_serde)]
-    pub biases: Vec<DVector<f64>>
+    pub biases: Vec<DVector<Float>>
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -41,10 +41,10 @@ impl Network {
         if !matches!(activation_function, ActivationFunction::Input) {
             let mut rng = thread_rng();
             let previous_layer = self.layers.last().expect("No previous layer").size;
-            let weights = DMatrix::<f64>::zeros(size, previous_layer);
+            let weights = DMatrix::<Float>::zeros(size, previous_layer);
 
             self.weights.push(weights.map(|_| activation_function.initialize_weight(previous_layer, &mut rng)));
-            self.biases.push(DVector::<f64>::zeros(size));
+            self.biases.push(DVector::<Float>::zeros(size));
         }
 
         self.layers.push(Layer {
@@ -56,8 +56,8 @@ impl Network {
         return self.layers.iter().map(|l| l.size).collect();
     }
 
-    pub fn feed_forward(&self, input: Vec<f64>) -> Vec<f64> {
-        let mut activation = DVector::from_vec(input) as DVector<f64>;
+    pub fn feed_forward(&self, input: Vec<Float>) -> Vec<Float> {
+        let mut activation = DVector::from_vec(input) as DVector<Float>;
 
         for (m, (weights, biases)) in self.weights.iter().zip(self.biases.iter()).enumerate() {
             activation = (weights * activation + biases).map(|x| self.layers[m + 1].activation_function.function(x));

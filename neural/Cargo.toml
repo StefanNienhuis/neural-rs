@@ -17,3 +17,4 @@ crossbeam-utils = { version = "0.8.10", optional = true }
 [features]
 default = ["threads"]
 threads = ["crossbeam-utils"]
+high-precision = []

@@ -1,6 +1,7 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
+use neural::Float;
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -37,22 +38,22 @@ impl Network {
     ///
     /// **Return value:** Float64Array containing the flattened weights. Formatted as NxL<sub>n</sub>xL<sub>n-1</sub>, starting at the first hidden layer.
     #[wasm_bindgen(getter)]
-    pub fn weights(&self) -> Box<[f64]> {
-        return self.network.weights.iter().map(|array| array.as_slice().to_vec()).flatten().collect::<Vec<f64>>().into_boxed_slice();
+    pub fn weights(&self) -> Box<[Float]> {
+        return self.network.weights.iter().map(|array| array.as_slice().to_vec()).flatten().collect::<Vec<Float>>().into_boxed_slice();
     }
 
     /// Returns the biases of the network.
     ///
     /// **Return value:** Float64Array containing the flattened biases. Formatted as NxL<sub>n</sub>, starting at the first hidden layer.
     #[wasm_bindgen(getter)]
-    pub fn biases(&self) -> Box<[f64]> {
-        return self.network.biases.iter().map(|array| array.as_slice().to_vec()).flatten().collect::<Vec<f64>>().into_boxed_slice();
+    pub fn biases(&self) -> Box<[Float]> {
+        return self.network.biases.iter().map(|array| array.as_slice().to_vec()).flatten().collect::<Vec<Float>>().into_boxed_slice();
     }
 
     /// Feeds forward the input through the network and returns the output.
     ///
     /// **Return value:** Float64Array containing the output.
-    pub fn feed_forward(&self, input: &[f64]) -> Box<[f64]> {
+    pub fn feed_forward(&self, input: &[Float]) -> Box<[Float]> {
         return self.network.feed_forward(input.to_vec()).into_boxed_slice();
     }
 

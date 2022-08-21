@@ -6,7 +6,13 @@ use std::path::PathBuf;
 use std::{process};
 use clap::{Parser, Subcommand, ArgAction};
 use rand::{seq::SliceRandom};
-use neural::{network::Network, functions::*};
+use neural::{network::Network, functions::*, Float};
+
+#[cfg(feature = "high-precision")]
+static FILE_EXTENSION: &str = "nn64";
+
+#[cfg(not(feature = "high-precision"))]
+static FILE_EXTENSION: &str = "nn32";
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -50,7 +56,7 @@ enum Commands {
 
         /// The learning rate
         #[clap(short='r', long)]
-        learning_rate: f64,
+        learning_rate: Float,
 
         /// The thread count
         #[clap(short='p', long, default_value = "1")]
@@ -141,7 +147,7 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
 
     let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
 
-    match io::write_file(&encoded, network_path, true, Some("nnet")) {
+    match io::write_file(&encoded, network_path, true, Some(FILE_EXTENSION)) {
         Err(error) => {
             println!("Couldn't write to {}: {}", network_path.display(), error);
             return;
@@ -151,7 +157,7 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
 }
 
 fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
-         learning_rate: &f64, thread_count: &usize, batch_size: &usize, batch_count: &Option<usize>, epochs: &usize,
+         learning_rate: &Float, thread_count: &usize, batch_size: &usize, batch_count: &Option<usize>, epochs: &usize,
          test_inputs: &Option<PathBuf>, test_labels: &Option<PathBuf>, verbose: bool) {
 
     let mut network = match io::read_network_file(network_path) {
@@ -202,9 +208,9 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
 
     let inputs_len = inputs.len();
 
-    let training_data: Vec<(Vec<f64>, Vec<f64>)> =
+    let training_data: Vec<(Vec<Float>, Vec<Float>)> =
         inputs.into_iter()
-            .map(|input| input.into_iter().map(|x| f64::from(x) / 255.0).collect::<Vec<_>>())
+            .map(|input| input.into_iter().map(|x| Float::from(x) / 255.0).collect::<Vec<_>>())
             // If expected output is a Vec with a single item, it is seen as an index. If it has multiple items, it is seen as an output.
             .zip(outputs_from_labels(&network, labels).into_iter())
             .collect();
@@ -219,7 +225,7 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
     println!();
 
     for i in 0..*epochs {
-        let mut training_data: Vec<(Vec<f64>, Vec<f64>)> = training_data.clone();
+        let mut training_data: Vec<(Vec<Float>, Vec<Float>)> = training_data.clone();
 
         training_data.shuffle(&mut rng);
 
@@ -261,7 +267,7 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
 
     let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
 
-    match io::write_file(&encoded, network_path, false, Some("nnet")) {
+    match io::write_file(&encoded, network_path, false, Some(FILE_EXTENSION)) {
         Err(error) => {
             println!("Error while saving network to {}: {}", network_path.display(), error);
             return;
@@ -310,11 +316,11 @@ fn test(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf, co
     println!("Accuracy: {:.2}%", accuracy * 100.0);
 }
 
-fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool) -> f64 {
+fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool) -> Float {
     let mut accuracy = 0.0;
 
     for (input, label) in test_batch {
-        let pixels: Vec<f64> = input.iter().map(|x| f64::from(*x) / 255.0).collect();
+        let pixels: Vec<Float> = input.iter().map(|x| Float::from(*x) / 255.0).collect();
 
         let result = network.feed_forward(pixels);
 
@@ -340,13 +346,13 @@ fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool
 
             accuracy += result.into_iter().zip(expected_output.into_iter())
                                           .map(|(r, e)| (r - e).abs()) // Calculate the absolute error
-                                          .fold(1.0, |a, x| a - (x / output_len as f64)); // Calculate the accuracy with the average error
+                                          .fold(1.0, |a, x| a - (x / output_len as Float)); // Calculate the accuracy with the average error
         }
 
 
     }
 
-    return accuracy / test_batch.len() as f64;
+    return accuracy / test_batch.len() as Float;
 }
 
 fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<PathBuf>) {
@@ -358,12 +364,12 @@ fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<P
         Ok(network) => network
     };
 
-    let input_data: Vec<f64> = match io::read_file(input_path) {
+    let input_data: Vec<Float> = match io::read_file(input_path) {
         Err(error) => {
             println!("Error while reading input: {}", error);
             return;
         }
-        Ok(network) => network.iter().map(|x| f64::from(*x) / 255.0).collect()
+        Ok(network) => network.iter().map(|x| Float::from(*x) / 255.0).collect()
     };
 
     if input_data.len() != *network.shape().first().unwrap_or(&0) {
@@ -385,7 +391,7 @@ fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<P
     }
 }
 
-fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<f64>> {
+fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<Float>> {
     let labels_len = labels[0].len();
 
     labels.into_iter().map(|label| {
@@ -394,7 +400,7 @@ fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<f64>>
             output[usize::from(label[0])] = 1.0;
             output
         } else {
-            label.into_iter().map(|x| f64::from(x) / 255.0).collect::<Vec<_>>()
+            label.into_iter().map(|x| Float::from(x) / 255.0).collect::<Vec<_>>()
         }
     }).collect()
 }

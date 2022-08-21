@@ -1,4 +1,4 @@
-use crate::{network::{Network}};
+use crate::{network::{Network}, Float};
 
 use nalgebra::{DMatrix, DVector};
 use rand::{seq::SliceRandom};
@@ -11,8 +11,8 @@ impl Network {
     /// Train the network using stochastic gradient descent
     ///
     /// *Single threaded*
-    pub fn stochastic_gradient_descent(&mut self, training_data: Vec<(Vec<f64>, Vec<f64>)>, batch_size: usize, learning_rate: f64) {
-        let mut training_data: Vec<(DVector<f64>, DVector<f64>)> = training_data.into_iter().map(|(input, output)| (input.into(), output.into())).collect();
+    pub fn stochastic_gradient_descent(&mut self, training_data: Vec<(Vec<Float>, Vec<Float>)>, batch_size: usize, learning_rate: Float) {
+        let mut training_data: Vec<(DVector<Float>, DVector<Float>)> = training_data.into_iter().map(|(input, output)| (input.into(), output.into())).collect();
 
         let mut rng = rand::thread_rng();
 
@@ -21,8 +21,8 @@ impl Network {
         for batch in training_data.chunks(batch_size) {
             let (weight_gradients, bias_gradients) = self.train_sgd_batch(batch, &self.weights, &self.biases);
 
-            self.weights = self.weights.iter().zip(weight_gradients.into_iter()).map(|(weights, gradient)| weights - (learning_rate / batch.len() as f64) * gradient).collect();
-            self.biases = self.biases.iter().zip(bias_gradients.into_iter()).map(|(biases, gradient)| biases - (learning_rate / batch.len() as f64) * gradient).collect();
+            self.weights = self.weights.iter().zip(weight_gradients.into_iter()).map(|(weights, gradient)| weights - (learning_rate / batch.len() as Float) * gradient).collect();
+            self.biases = self.biases.iter().zip(bias_gradients.into_iter()).map(|(biases, gradient)| biases - (learning_rate / batch.len() as Float) * gradient).collect();
         }
     }
 
@@ -30,8 +30,8 @@ impl Network {
     /// Train the network using parallel stochastic gradient descent
     ///
     /// *Multithreaded*
-    pub fn parallel_stochastic_gradient_descent(&mut self, training_data: Vec<(Vec<f64>, Vec<f64>)>, thread_count: usize, batch_size: usize, learning_rate: f64) {
-        let mut training_data: Vec<(DVector<f64>, DVector<f64>)> = training_data.into_iter().map(|(input, output)| (input.into(), output.into())).collect();
+    pub fn parallel_stochastic_gradient_descent(&mut self, training_data: Vec<(Vec<Float>, Vec<Float>)>, thread_count: usize, batch_size: usize, learning_rate: Float) {
+        let mut training_data: Vec<(DVector<Float>, DVector<Float>)> = training_data.into_iter().map(|(input, output)| (input.into(), output.into())).collect();
 
         assert_eq!(training_data.len() % batch_size, 0, "Training data must be split equally over batches");
         assert_eq!((training_data.len() / batch_size) % thread_count, 0, "Batches must be split equally over threads");
@@ -40,8 +40,8 @@ impl Network {
 
         training_data.shuffle(&mut rng);
 
-        let mut new_weights = self.weights.iter().map(|x| DMatrix::<f64>::zeros(x.nrows(), x.ncols())).collect::<Vec<_>>();
-        let mut new_biases = self.biases.iter().map(|x| DVector::<f64>::zeros(x.nrows())).collect::<Vec<_>>();
+        let mut new_weights = self.weights.iter().map(|x| DMatrix::<Float>::zeros(x.nrows(), x.ncols())).collect::<Vec<_>>();
+        let mut new_biases = self.biases.iter().map(|x| DVector::<Float>::zeros(x.nrows())).collect::<Vec<_>>();
 
         thread::scope(|scope| {
             let mut handles = Vec::with_capacity(thread_count);
@@ -58,8 +58,8 @@ impl Network {
                     for batch in batches.chunks(batch_size) {
                         let (weight_gradients, bias_gradients) = this.train_sgd_batch(batch, &weights, &biases);
 
-                        weights = weights.iter().zip(weight_gradients.into_iter()).map(|(weights, gradient)| weights - (learning_rate / batch.len() as f64) * gradient).collect();
-                        biases = biases.iter().zip(bias_gradients.into_iter()).map(|(biases, gradient)| biases - (learning_rate / batch.len() as f64) * gradient).collect();
+                        weights = weights.iter().zip(weight_gradients.into_iter()).map(|(weights, gradient)| weights - (learning_rate / batch.len() as Float) * gradient).collect();
+                        biases = biases.iter().zip(bias_gradients.into_iter()).map(|(biases, gradient)| biases - (learning_rate / batch.len() as Float) * gradient).collect();
                     }
 
                     println!("Thread {} done", i);
@@ -71,8 +71,8 @@ impl Network {
             for handle in handles {
                 let (thread_weights, thread_biases) = handle.join().unwrap();
 
-                new_weights.iter_mut().enumerate().for_each(|(i, x)| *x += &thread_weights[i] / thread_count as f64);
-                new_biases.iter_mut().enumerate().for_each(|(i, x)| *x += &thread_biases[i] / thread_count as f64)
+                new_weights.iter_mut().enumerate().for_each(|(i, x)| *x += &thread_weights[i] / thread_count as Float);
+                new_biases.iter_mut().enumerate().for_each(|(i, x)| *x += &thread_biases[i] / thread_count as Float)
             }
 
         }).unwrap();
@@ -82,9 +82,9 @@ impl Network {
     }
 
     /// Calculate the weight and bias gradients for a specific SGD batch
-    fn train_sgd_batch(&self, batch: &[(DVector<f64>, DVector<f64>)], weights: &Vec<DMatrix<f64>>, biases: &Vec<DVector<f64>>) -> (Vec<DMatrix<f64>>, Vec<DVector<f64>>) {
-        let mut weight_gradients: Vec<DMatrix<f64>> = weights.iter().map(|weights| DMatrix::zeros(weights.nrows(), weights.ncols())).collect();
-        let mut bias_gradients: Vec<DVector<f64>> = biases.iter().map(|biases| DVector::zeros(biases.nrows())).collect();
+    fn train_sgd_batch(&self, batch: &[(DVector<Float>, DVector<Float>)], weights: &Vec<DMatrix<Float>>, biases: &Vec<DVector<Float>>) -> (Vec<DMatrix<Float>>, Vec<DVector<Float>>) {
+        let mut weight_gradients: Vec<DMatrix<Float>> = weights.iter().map(|weights| DMatrix::zeros(weights.nrows(), weights.ncols())).collect();
+        let mut bias_gradients: Vec<DVector<Float>> = biases.iter().map(|biases| DVector::zeros(biases.nrows())).collect();
 
         // Calculate the weight and bias gradients for a specific training sample
         for (input, expected_output) in batch {
@@ -97,15 +97,15 @@ impl Network {
         return (weight_gradients, bias_gradients);
     }
 
-    fn back_propagate(&self, input: &DVector<f64>, expected_output: &DVector<f64>, weights: &Vec<DMatrix<f64>>, biases: &Vec<DVector<f64>>) -> (Vec<DMatrix<f64>>, Vec<DVector<f64>>) {
-        let mut weight_gradients: Vec<DMatrix<f64>> = weights.iter().map(|weights| DMatrix::zeros(weights.nrows(), weights.ncols())).collect();
-        let mut bias_gradients: Vec<DVector<f64>> = biases.iter().map(|biases| DVector::zeros(biases.nrows())).collect();
+    fn back_propagate(&self, input: &DVector<Float>, expected_output: &DVector<Float>, weights: &Vec<DMatrix<Float>>, biases: &Vec<DVector<Float>>) -> (Vec<DMatrix<Float>>, Vec<DVector<Float>>) {
+        let mut weight_gradients: Vec<DMatrix<Float>> = weights.iter().map(|weights| DMatrix::zeros(weights.nrows(), weights.ncols())).collect();
+        let mut bias_gradients: Vec<DVector<Float>> = biases.iter().map(|biases| DVector::zeros(biases.nrows())).collect();
 
         let mut activation = input.clone();
-        let mut activations: Vec<DVector<f64>> = vec![input.clone()];
+        let mut activations: Vec<DVector<Float>> = vec![input.clone()];
 
         // Activations before the non-linear function (e.g. sigmoid) - starts with actual input as this isn't weighted
-        let mut weighted_inputs: Vec<DVector<f64>> = vec![input.clone()];
+        let mut weighted_inputs: Vec<DVector<Float>> = vec![input.clone()];
 
         for (m, (weights, biases)) in weights.iter().zip(biases.iter()).enumerate() {
             let weighted_input = weights * activation + biases;
@@ -119,7 +119,7 @@ impl Network {
         let output_layer = activations.len() - 1;
 
         // Calculate the error in the output layer
-        let mut error: DVector<f64> = self.cost_function
+        let mut error: DVector<Float> = self.cost_function
             .derivative(&activations[output_layer], &expected_output)
             .component_mul(&weighted_inputs[output_layer].map(|x| self.layers.last().expect("No output layer").activation_function.derivative(x)));
 
