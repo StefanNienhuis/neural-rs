@@ -8,5 +8,5 @@ export default defineConfig({
             allow: ['.', '../pkg']
         }
     },
-    assetsInclude: ['**/*.nnet']
+    assetsInclude: ['**/*.nn64', '**/*.nn32']
 });

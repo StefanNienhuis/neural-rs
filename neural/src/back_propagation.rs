@@ -104,7 +104,7 @@ impl Network {
         let mut activation = input.clone();
         let mut activations: Vec<DVector<Float>> = vec![input.clone()];
 
-        // Activations before the non-linear function (e.g. sigmoid) - starts with actual input as this isn't weighted
+        // Activations before the activation function - starts with actual input as this isn't weighted
         let mut weighted_inputs: Vec<DVector<Float>> = vec![input.clone()];
 
         for (m, (weights, biases)) in weights.iter().zip(biases.iter()).enumerate() {
@@ -126,7 +126,7 @@ impl Network {
         weight_gradients[self.layers.len() - 2] = &error * activations[output_layer - 1].transpose();
         bias_gradients[self.layers.len() - 2] = error.clone();
 
-        // Calculate the errors per layer from the first hidden layer up to (but not including) the output layer
+        // Calculate the errors per layer from the last hidden layer to the first
         for l in (1..output_layer).rev() {
             error = (weights[l].transpose() * &error).component_mul(&weighted_inputs[l].map(|x| self.layers[l].activation_function.derivative(x)));
 

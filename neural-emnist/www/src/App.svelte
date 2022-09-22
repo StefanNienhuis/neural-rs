@@ -1,28 +1,16 @@
 <div class="container">
-    <div style="display: flex; flex-direction: column; width: 282px;">
+    <div style="display: flex; flex-direction: column; width: 1282px;">
         <div style="margin: 8px 0;">
             <p style="float: left; margin: 0;">{ networkName ?? `Default network (${type})` }</p>
             <button on:click={upload} style="float: right;">Upload custom</button>
             <input type="file" bind:this={networkPicker} on:change={onNetworkPicked} style="display: none;" />
         </div>
     
-        <DrawCanvas width={280} height={280} scaledSize={28} {editable} bind:getPixels={getPixels} bind:clear={clearCanvas} />
-
-        <div style="width: 100%; margin-top: 16px; text-align: center;">
-            <input type="radio" bind:group={type} id="digits" value="digits">
-            <label for="digits">Digits</label>
-
-            <input type="radio" bind:group={type} id="letters" value="letters">
-            <label for="letters">Letters</label>
-        </div>
+        <DrawCanvas width={1280} height={720} characterSide={28} {editable} bind:getCharacters={getCharacters} bind:clear={clearCanvas} />
     
         <p style="width: 100%; margin: 16px 0; text-align: center;">
-            { #if results != null }
-                { #if results[0][1] > 0.3 }
-                    Result: { type === 'digits' ? results[0][0] : String.fromCharCode(results[0][0] + 96) } ({Math.round(results[0][1] * 1000) / 10}%)
-                { :else }
-                    Failed to recognize a { type === 'digits' ? 'digit' : 'letter' }
-                { /if }
+            { #if result != null }
+                Result: { result.map((v) => typeof v == 'number' ? v > medianKerning() * kerningMultiplier ? ' ' : '' : v).join('') }
             { :else }
                 Press detect to recognize the { type === 'digits' ? 'digit' : 'letter' }
             { /if }
@@ -30,20 +18,25 @@
     
         <button on:click={detect} disabled={!editable}>Detect</button>
         <button on:click={clear} style="margin-top: 4px; margin-bottom: 16px;">Clear</button>
+
+        <div style="width: 100%; margin-top: 16px; text-align: center;">
+            Kerning multiplier: { kerningMultiplier }<br/>
+            <input type="range" bind:value={kerningMultiplier} min={1} max={5} step={0.1}>
+        </div>
     
-        { #if results != null }
+        { #if result != null }
             <table>
                 <thead>
                     <tr>
-                        { #each results as [i] }
-                            <th>{ type === 'digits' ? i : String.fromCharCode(i + 96) }</th>
+                        { #each result.filter((x) => typeof x == 'string') as character }
+                            <th>{ character }</th>
                         { /each }
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        { #each results as [, p] }
-                            <td>{Math.round(p * 1000) / 10}%</td>
+                        { #each result.filter((x) => typeof x == 'string') as _, i }
+                            <td>{ Math.round(probabilities[i] * 100) / 100 }</td>
                         { /each }
                     </tr>
                 </tbody>
@@ -58,10 +51,10 @@
 
     import DrawCanvas from './DrawCanvas.svelte';
 
-    import defaultDigitsPath from '../assets/default-digits.nnet';
-    import defaultLettersPath from '../assets/default-letters.nnet';
+    import defaultDigitsPath from '../assets/default-digits.nn64';
+    import defaultLettersPath from '../assets/default-letters.nn64';
 
-    let getPixels: () => number[];
+    let getCharacters: () => (number | number[][])[];
     let clearCanvas: () => void;
 
     let networkName: string | undefined;
@@ -73,8 +66,10 @@
     let defaultLetters: wasm.Network;
 
     let type: 'digits' | 'letters' = 'digits';
+    let kerningMultiplier = 3;
 
-    let results: [number, number][];
+    let result: (string | number)[];
+    let probabilities: number[];
     let editable = true;
 
     onMount(async () => {
@@ -92,8 +87,6 @@
             .then((buffer) => defaultLetters = new wasm.Network(new Uint8Array(buffer)))
             .catch((error) => console.error(`Error while loading default letters network: ${error}`));
     });
-
-    // Neural network
 
     function upload() {
         networkPicker.click();
@@ -114,18 +107,43 @@
     }
 
     function detect() {
-        let pixels = getPixels();
-        editable = false;
-        
-        results = Array.from((network || (type == 'digits' ? defaultDigits : defaultLetters)).feed_forward(new Float64Array(pixels)).entries());
+        result = [];
+        probabilities = [];
 
-        results = results.sort(([, a], [, b]) => b - a).slice(0, 5);
+        let characters = getCharacters();
+        
+        for (let character of characters) {
+            if (typeof character != 'number') {
+                let data = character as number[][];
+                let transposedData = data.map((_, i) => data.map((r) => r[i]));
+                
+                let output = Array.from(network.feed_forward(new Float64Array(transposedData.flat())).entries());
+                let characterOutput = output.sort(([,p1], [,p2]) => p2 - p1)[0];
+
+                result.push(String.fromCharCode(characterOutput[0] + 96));
+                probabilities.push(characterOutput[1]);
+            } else {
+                result.push(character);
+            }
+        }
+    }
+
+    function medianKerning(): number {
+        let spaces = result.filter((character) => typeof character == 'number').sort() as number[];
+
+        let half = Math.floor(spaces.length / 2);
+
+        if (spaces.length % 2 == 0) {
+            return (spaces[half - 1] + spaces[half]) / 2;
+        } else {
+            return spaces[half];
+        }
     }
 
     function clear() {
         clearCanvas();
         editable = true;
-        results = null;
+        result = null;
     }
 </script>
 

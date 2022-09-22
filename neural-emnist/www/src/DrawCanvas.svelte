@@ -5,7 +5,7 @@
 
     export let width: number;
     export let height: number;
-    export let scaledSize: number;
+    export let characterSide: number;
     export let editable: boolean;
 
     let canvas: HTMLCanvasElement;
@@ -56,10 +56,10 @@
         let x = mouseX - canvasRect.left;
         let y = mouseY - canvasRect.top;
 
-        if (x <= minX) minX = x;
-        if (x >= maxX) maxX = x;
-        if (y <= minY) minY = y;
-        if (y >= maxY) maxY = y;
+        if (x - 15 <= minX) minX = x - 15;
+        if (x + 15 >= maxX) maxX = x + 15;
+        if (y - 15 <= minY) minY = y - 15;
+        if (y + 15 >= maxY) maxY = y + 15;
 
         if (lastX != null && lastY != null) {
             context.beginPath();
@@ -82,29 +82,99 @@
         lastY = y;
     }
 
-    export const getPixels = () => {
-        let side = Math.max(maxX - minX, maxY - minY) + 75;
-        let centerX = Math.round((maxX + minX) / 2);
-        let centerY = Math.round((maxY + minY) / 2);
-        let data = context.getImageData(centerX - (side / 2), centerY - (side / 2), side, side);
+    export const getCharacters = () => {
+        // TODO: return from DrawCanvas: list of lines -> list of characters (scaled to 28x28) and spacing between
 
-        let pixels = [];
+        let data = context.getImageData(minX, minY, maxX - minX, maxY - minY);
+
+        // pixels[y][x]
+        let pixels: number[][] = Array(data.height).fill(null).map(() => []);
         
         for (let i = 0; i < data.data.length / 4; i++) {
             let intensity = data.data[(i * 4) + 3];
             
-            pixels[i] = intensity / 255;
+            pixels[Math.floor(i / data.width)][i % data.width] = intensity / 255;
+        }
+        
+        let line = pixels;
+        let lineWidth = pixels[0].length;
+
+        let characterBounds: [number, number][] = [];
+
+        let characterStart: number | undefined;
+
+        for (let x = 0; x < lineWidth; x++) {
+            if (line.map(row => row[x]).some(intensity => intensity > 0)) {
+                if (characterStart == null) {
+                    characterStart = x;
+                }
+            } else if (characterStart != null) {
+                characterBounds.push([characterStart, x]);
+                characterStart = null;  
+            }
         }
 
-        let scaledPixels = [];
+        if (characterStart != null) {
+            characterBounds.push([characterStart, lineWidth]);
+        }
 
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        // Array of 2d character arrays and the spacing between those characters
+        let characters: (number[][] | number)[] = [];
 
-        // Bilinear interpolation
-        for (let row = 0; row < scaledSize; row++) {
-            for (let column = 0; column < scaledSize; column++) {
-                let x = column * ((side - 1) / (scaledSize - 1));
-                let y = row * ((side - 1) / (scaledSize - 1));
+        for (let [i, [start, end]] of characterBounds.entries()) {
+            let data = pixels.map((row) => row.filter((_, x) => x >= start && x < end))
+                             .filter((row) => row.some((intensity) => intensity > 0));
+                             
+            let dataWidth = data[0].length;
+            let dataHeight = data.length;
+
+            let side = Math.max(dataWidth, dataHeight);
+            side *= 1.2; // Add 10% padding on each side
+            side = Math.round(side);
+
+            if (dataWidth > side || dataHeight > side) {
+                console.error(`Invalid side lengths: ${dataWidth}, ${dataHeight} should be less than square ${side}`);
+                return;
+            }
+
+            let xPadding = side - dataWidth;
+            let yPaddding = side - dataHeight;
+
+            // Apply x padding
+            data = data.map((row) => [
+                ...Array(Math.ceil(xPadding / 2)).fill(0),
+                ...row,
+                ...Array(Math.floor(xPadding / 2)).fill(0)
+            ]);
+
+            // Apply y padding
+            data = [
+                ...Array(Math.ceil(yPaddding / 2)).fill(Array(side).fill(0)),
+                ...data,
+                ...Array(Math.floor(yPaddding / 2)).fill(Array(side).fill(0))
+            ];
+
+            let scaledData = scaleCharacter(data, side, characterSide);
+            
+            characters.push(scaledData);
+
+            let nextCharacter = characterBounds[i + 1];
+
+            if (nextCharacter != null) {
+                characters.push(nextCharacter[0] - end);
+            }
+        }
+
+        return characters;
+    }
+
+    function scaleCharacter(data: number[][], side: number, scaledSide: number) {
+        let scaledData: number[][] = Array(scaledSide).fill(null).map(() => []);
+
+        for (let scaledY = 0; scaledY < scaledSide; scaledY++) {
+            for (let scaledX = 0; scaledX < scaledSide; scaledX++) {
+                let x = scaledX * ((side - 1) / (scaledSide - 1));
+                let y = scaledY * ((side - 1) / (scaledSide - 1));
 
                 let fx = Math.floor(x);
                 let cx = Math.ceil(x);
@@ -112,13 +182,13 @@
                 let cy = Math.ceil(y);
 
                 let intensity, a, b;
-
+                
                 if (fx == cx) {
-                    a = pixels[fy * side + fx] || 0;
-                    b = pixels[cy * side + fx] || 0;
+                    a = data[fy]?.[fx] ?? 0;
+                    b = data[cy]?.[fx] ?? 0;
                 } else {
-                    a = (x - fx) * (pixels[fy * side + cx] || 0) + (cx - x) * (pixels[fy * side + fx] || 0);
-                    b = (x - fx) * (pixels[cy * side + cx] || 0) + (cx - x) * (pixels[cy * side + fx] || 0);
+                    a = (x - fx) * (data[fy]?.[cx] ?? 0) + (cx - x) * (data[fy]?.[fx] ?? 0);
+                    b = (x - fx) * (data[cy]?.[cx] ?? 0) + (cx - x) * (data[cy]?.[fx] ?? 0);
                 }
 
                 if (fy == cy) {
@@ -127,17 +197,17 @@
                     intensity = (y - fy) * b + (cy - y) * a;
                 }
 
-                if (Number.isNaN(intensity) || intensity == undefined) debugger;
+                if (Number.isNaN(intensity) || intensity == undefined) {
+                    console.error(`Bilinear interpolation error: Intesity is NaN or undefined.`);
+                    debugger;
+                }
 
-                scaledPixels[column * scaledSize + row] = intensity;
-
-                context.fillStyle = `rgba(0, 0, 0, ${intensity})`;
-                context.fillRect(column * 10, row * 10, 10, 10);
+                scaledData[scaledY][scaledX] = intensity;
             }
         }
 
-        return scaledPixels;
-    };
+        return scaledData;
+    }
 
     export const clear = () => {
         context.clearRect(0, 0, canvas.width, canvas.height);

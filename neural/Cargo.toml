@@ -15,6 +15,6 @@ nalgebra = { version = "0.31.0", features = ["serde-serialize"] }
 crossbeam-utils = { version = "0.8.10", optional = true }
 
 [features]
-default = ["threads"]
+default = ["threads", "high-precision"]
 threads = ["crossbeam-utils"]
 high-precision = []
