@@ -130,7 +130,13 @@ fn main() {
 }
 
 fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
-    let cost_function = CostFunction::from(cost_function.as_str()).unwrap_or_else(|| panic!("Invalid cost function: {}", cost_function));
+    let cost_function = match CostFunction::from(cost_function.as_str()) {
+        Some(cost_function) => cost_function,
+        None => {
+            println!("Invalid cost function: {}", cost_function);
+            return;
+        }
+    };
 
     let mut network = Network::new(cost_function);
 
@@ -139,8 +145,21 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
         let activation_function_string = split.next().expect("Missing activation function");
         let size_string = split.next().expect("Missing layer size");
 
-        let activation_function = ActivationFunction::from(activation_function_string).expect("Invalid activation function");
-        let size = size_string.parse::<usize>().unwrap_or_else(|error| panic!("Invalid layer size: {}", error));
+        let activation_function = match ActivationFunction::from(activation_function_string) {
+            Some(activation_function) => activation_function,
+            None => {
+                println!("Invalid activation function: {}", activation_function_string);
+                return;
+            }
+        };
+
+        let size = match size_string.parse::<usize>() {
+            Some(size) => size,
+            None => {
+                println!("Invalid layer size: {}", size_string);
+                return;
+            }
+        };
 
         network.add_layer(size, activation_function);
     }
