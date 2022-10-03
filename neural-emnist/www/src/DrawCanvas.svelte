@@ -1,4 +1,4 @@
-<canvas bind:this={canvas} {width} {height} style={`border: 1px solid lightgray; cursor: ${editable ? 'crosshair' : 'not-allowed'};`}></canvas>
+<canvas bind:this={canvas} width={width} height={height} style={`border: 1px solid lightgray; cursor: ${editable ? 'crosshair' : 'not-allowed'};`}></canvas>
 
 <script lang="ts">
     import { onMount } from "svelte";
@@ -82,6 +82,20 @@
         lastY = y;
     }
 
+    export const drawImage = (image: HTMLImageElement) => {
+        let scaleFactor = Math.min(image.width / width, image.height / height);
+        canvas.width = image.width / scaleFactor;
+        canvas.height = image.height / scaleFactor;
+
+        minX = 0;
+        minY = 0;
+        maxX = canvas.width;
+        maxY = canvas.height;
+        
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        context.lineWidth = 30;
+    }
+
     export const getCharacters = () => {
         // TODO: return from DrawCanvas: list of lines -> list of characters (scaled to 28x28) and spacing between
 
@@ -91,11 +105,12 @@
         let pixels: number[][] = Array(data.height).fill(null).map(() => []);
         
         for (let i = 0; i < data.data.length / 4; i++) {
-            let intensity = data.data[(i * 4) + 3];
+            let grayscale = (data.data[i * 4] + data.data[i * 4 + 1] + data.data[i * 4 + 2]) / 3 / 255;
+            let alpha = data.data[i * 4 + 3] / 255;
             
-            pixels[Math.floor(i / data.width)][i % data.width] = intensity / 255;
+            pixels[Math.floor(i / data.width)][i % data.width] = Math.round((1 - grayscale) * alpha);
         }
-        
+
         let line = pixels;
         let lineWidth = pixels[0].length;
 
@@ -210,8 +225,12 @@
     }
 
     export const clear = () => {
+        canvas.width = width;
+        canvas.height = height;
+
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = 'black';
+        context.lineWidth = 30;
 
         minX = width;
         minY = height;

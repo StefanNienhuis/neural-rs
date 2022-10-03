@@ -1,18 +1,21 @@
 <div class="container">
     <div style="display: flex; flex-direction: column; width: 1282px;">
         <div style="margin: 8px 0;">
-            <p style="float: left; margin: 0;">{ networkName ?? `Default network (${type})` }</p>
+            <p style="float: left; margin: 0;">{ networkName ?? `Default network` }</p>
             <button on:click={upload} style="float: right;">Upload custom</button>
             <input type="file" bind:this={networkPicker} on:change={onNetworkPicked} style="display: none;" />
         </div>
     
-        <DrawCanvas width={1280} height={720} characterSide={28} {editable} bind:getCharacters={getCharacters} bind:clear={clearCanvas} />
+        <DrawCanvas width={1280} height={720} characterSide={28} {editable} bind:getCharacters={getCharacters} bind:drawImage={drawImage} bind:clear={clearCanvas} />
+
+        <button on:click={uploadImage}>Upload image</button>
+        <input type="file" accept=".jpg,.jpeg,.png" capture="environment" bind:this={imagePicker} on:change={onImagePicked} style="display: none;" />
     
         <p style="width: 100%; margin: 16px 0; text-align: center;">
             { #if result != null }
                 Result: { result.map((v) => typeof v == 'number' ? v > medianKerning() * kerningMultiplier ? ' ' : '' : v).join('') }
             { :else }
-                Press detect to recognize the { type === 'digits' ? 'digit' : 'letter' }
+                Press detect to recognize the text
             { /if }
         </p>
     
@@ -51,10 +54,10 @@
 
     import DrawCanvas from './DrawCanvas.svelte';
 
-    import defaultDigitsPath from '../assets/default-digits.nn64';
-    import defaultLettersPath from '../assets/default-letters.nn64';
+    import defaultNetworkPath from '../assets/default.nn64';
 
     let getCharacters: () => (number | number[][])[];
+    let drawImage: (image: HTMLImageElement) => void;
     let clearCanvas: () => void;
 
     let networkName: string | undefined;
@@ -62,10 +65,9 @@
     let networkPicker: HTMLInputElement;
     let networkReader = new FileReader();
 
-    let defaultDigits: wasm.Network;
-    let defaultLetters: wasm.Network;
+    let imagePicker: HTMLInputElement;
+    let imageReader = new FileReader();
 
-    let type: 'digits' | 'letters' = 'digits';
     let kerningMultiplier = 3;
 
     let result: (string | number)[];
@@ -74,18 +76,14 @@
 
     onMount(async () => {
         networkReader.addEventListener('load', onNetworkLoad);
+        imageReader.addEventListener('load', onImageLoad);
 
         await wasmInit();
 
-        fetch(defaultDigitsPath)
+        fetch(defaultNetworkPath)
             .then((response) => response.arrayBuffer())
-            .then((buffer) => defaultDigits = new wasm.Network(new Uint8Array(buffer)))
-            .catch((error) => console.error(`Error while loading default digits network: ${error}`));
-
-        fetch(defaultLettersPath)
-            .then((response) => response.arrayBuffer())
-            .then((buffer) => defaultLetters = new wasm.Network(new Uint8Array(buffer)))
-            .catch((error) => console.error(`Error while loading default letters network: ${error}`));
+            .then((buffer) => network = new wasm.Network(new Uint8Array(buffer)))
+            .catch((error) => console.error(`Error while loading default network: ${error}`));
     });
 
     function upload() {
@@ -104,6 +102,42 @@
         let data = new Uint8Array(result);
 
         network = new wasm.Network(data);
+    }
+
+    function uploadImage() {
+        imagePicker.click();
+    }
+
+    function onImagePicked() {
+        let file = imagePicker.files[0];
+
+        if (file.type != 'image/jpeg' && file.type != 'image/png') {
+            console.warn(`Unknown image type: ${file.type}`);
+        }
+        
+        let image = new Image();
+
+        image.onload = () => {
+            console.log(image);
+            drawImage(image);
+        }
+
+        image.src = URL.createObjectURL(file);
+    }
+
+    function onImageLoad(event: ProgressEvent<FileReader>) {
+        let result = event.target.result as string;
+        
+        let image = new Image();
+
+        image.onload = () => {
+            console.log(image);
+            drawImage(image);
+        }
+
+        console.log(result);
+
+        image.src = result;
     }
 
     function detect() {
