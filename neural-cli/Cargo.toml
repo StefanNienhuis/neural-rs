@@ -16,5 +16,6 @@ rand = "0.8.5"
 ctrlc = "3.2.2"
 
 [features]
-default = ["high-precision"]
+default = ["high-precision", "threads"]
+threads = ["neural/threads"]
 high-precision = ["neural/high-precision"]

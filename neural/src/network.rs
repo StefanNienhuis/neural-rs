@@ -1,24 +1,15 @@
-use crate::{functions::*, Float};
+use crate::{CostFunction, Layer, Float};
 
-use nalgebra::{DMatrix, DVector};
-use rand::thread_rng;
+use nalgebra::{DVector};
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct Network {
-    pub(crate) layers: Vec<Layer>,
-    pub cost_function: CostFunction,
-
+    /// The layers in the network.
     #[bincode(with_serde)]
-    pub weights: Vec<DMatrix<Float>>,
+    pub layers: Vec<Box<dyn Layer>>,
 
-    #[bincode(with_serde)]
-    pub biases: Vec<DVector<Float>>
-}
-
-#[derive(bincode::Encode, bincode::Decode)]
-pub struct Layer {
-    pub activation_function: ActivationFunction,
-    pub size: usize
+    /// The cost function for the network.
+    pub cost_function: CostFunction
 }
 
 impl Network {
@@ -26,44 +17,26 @@ impl Network {
     pub fn new(cost_function: CostFunction) -> Self {
         return Self {
             layers: vec![],
-            cost_function,
-            weights: vec![],
-            biases: vec![]
+            cost_function
         }
     }
 
-    pub fn add_layer(&mut self, size: usize, activation_function: ActivationFunction) {
-        if matches!(activation_function, ActivationFunction::Input) && self.layers.len() != 0 ||
-            !matches!(activation_function, ActivationFunction::Input) && self.layers.len() == 0 {
-            panic!("Input layer should be first")
-        }
-
-        if !matches!(activation_function, ActivationFunction::Input) {
-            let mut rng = thread_rng();
-            let previous_layer = self.layers.last().expect("No previous layer").size;
-            let weights = DMatrix::<Float>::zeros(size, previous_layer);
-
-            self.weights.push(weights.map(|_| activation_function.initialize_weight(previous_layer, &mut rng)));
-            self.biases.push(DVector::<Float>::zeros(size));
-        }
-
-        self.layers.push(Layer {
-            size, activation_function
-        });
+    pub fn add_layer<L: Layer + Clone + 'static>(&mut self, layer: L) {
+        self.layers.push(Box::new(layer));
     }
 
     pub fn shape(&self) -> Vec<usize> {
-        return self.layers.iter().map(|l| l.size).collect();
+        return self.layers.iter().map(|l| l.size()).collect();
     }
 
     pub fn feed_forward(&self, input: Vec<Float>) -> Vec<Float> {
         let mut activation = DVector::from_vec(input) as DVector<Float>;
 
-        for (m, (weights, biases)) in self.weights.iter().zip(self.biases.iter()).enumerate() {
-            activation = (weights * activation + biases).map(|x| self.layers[m + 1].activation_function.function(x));
+        for layer in &self.layers {
+            activation = layer.feed_forward(&activation);
         }
 
-        return activation.iter().cloned().collect();
+        return activation.data.into();
     }
 
 }

@@ -1,16 +1,17 @@
 use crate::Float;
 
-use nalgebra::DVector;
 use rand::Rng;
 use rand_distr::{Normal};
 use rand_distr::num_traits::{FromPrimitive, Pow};
+use serde::{Serialize, Deserialize};
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum ActivationFunction {
     Input, Sigmoid, ReLU, LeakyReLU(Float), Tanh
 }
 
 impl ActivationFunction {
+    /// Evaluate the activation function for a value.
     pub fn function(&self, x: Float) -> Float {
         match self {
             Self::Input => panic!("Input does not have an activation function"),
@@ -21,6 +22,7 @@ impl ActivationFunction {
         }
     }
 
+    /// Evaluate the derivative of the activation function for a value.
     pub fn derivative(&self, x: Float) -> Float {
         match self {
             Self::Input => panic!("Input does not have an activation function"),
@@ -31,6 +33,7 @@ impl ActivationFunction {
         }
     }
 
+    /// Initialize a weight based on the activation function.
     pub fn initialize_weight(&self, previous_layer_size: usize, rng: &mut impl Rng) -> Float {
         match self {
             Self::Input => panic!("Input does not have weights"),
@@ -48,6 +51,7 @@ impl ActivationFunction {
         }
     }
 
+    /// Initialize the activation function from a name string.
     pub fn from(string: &str) -> Option<Self> {
         if string.starts_with("leakyrelu(") && string.ends_with(")") {
             let alpha_start = string.find("(").expect("Couldn't find open");
@@ -66,37 +70,4 @@ impl ActivationFunction {
             _ => None
         }
     }
-}
-
-#[derive(bincode::Encode, bincode::Decode)]
-pub enum CostFunction {
-    MeanAbsoluteError, MeanSquaredError
-}
-
-impl CostFunction {
-
-    // Not ever used in backpropagation, but kept here for reference
-    pub fn function(&self, output: &DVector<Float>, expected_output: &DVector<Float>) -> DVector<Float> {
-        match self {
-            Self::MeanAbsoluteError => (output - expected_output).abs(),
-            Self::MeanSquaredError => (output - expected_output).map(|x| x.pow(2)) / 2.0
-        }
-    }
-
-    /// Returns the vector of partial derivatives of the cost function with respect to the expected output
-    pub fn derivative(&self, output: &DVector<Float>, expected_output: &DVector<Float>) -> DVector<Float> {
-        match self {
-            Self::MeanAbsoluteError => output.zip_map(expected_output, |o, e| if e > o { -1.0 } else if e < o { 1.0 } else { 0.0 }),
-            Self::MeanSquaredError => output - expected_output
-        }
-    }
-
-    pub fn from(string: &str) -> Option<Self> {
-        match string {
-            "mae" | "mean-absolute-error" => Some(Self::MeanAbsoluteError),
-            "mse" | "mean-squared-error" => Some(Self::MeanSquaredError),
-            _ => None
-        }
-    }
-
 }

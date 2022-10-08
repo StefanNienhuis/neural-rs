@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::{process};
 use clap::{Parser, Subcommand, ArgAction};
 use rand::{seq::SliceRandom};
-use neural::{network::Network, functions::*, Float};
+use neural::{Network, ActivationFunction, CostFunction, Float, layer};
 
 #[cfg(feature = "high-precision")]
 static FILE_EXTENSION: &str = "nn64";
@@ -142,26 +142,50 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
 
     for layer in layers {
         let mut split = layer.split(":");
-        let activation_function_string = split.next().expect("Missing activation function");
-        let size_string = split.next().expect("Missing layer size");
+        let layer_type = split.next().expect("Missing layer type");
 
-        let activation_function = match ActivationFunction::from(activation_function_string) {
-            Some(activation_function) => activation_function,
-            None => {
-                println!("Invalid activation function: {}", activation_function_string);
+        if layer_type == "input" {
+            let size = split.next().expect("Missing layer size");
+
+            let size = match size.parse::<usize>() {
+                Ok(size) => size,
+                Err(_) => {
+                    println!("Invalid layer size: {}", size);
+                    return;
+                }
+            };
+
+            network.add_layer(layer::Input::new(size));
+        } else if layer_type == "fc" || layer_type == "fully-connected" {
+            let activation_function = split.next().expect("Missing activation function");
+            let size = split.next().expect("Missing layer size");
+
+            let activation_function = match ActivationFunction::from(activation_function) {
+                Some(activation_function) => activation_function,
+                None => {
+                    println!("Invalid activation function: {}", activation_function);
+                    return;
+                }
+            };
+
+            let size = match size.parse::<usize>() {
+                Ok(size) => size,
+                Err(_) => {
+                    println!("Invalid layer size: {}", size);
+                    return;
+                }
+            };
+
+            if let Some(last_layer) = network.layers.last() {
+                network.add_layer(layer::FullyConnected::new(last_layer.size(), size, activation_function));
+            } else {
+                println!("No previous layer to connect fully connected layer to");
                 return;
             }
-        };
-
-        let size = match size_string.parse::<usize>() {
-            Some(size) => size,
-            None => {
-                println!("Invalid layer size: {}", size_string);
-                return;
-            }
-        };
-
-        network.add_layer(size, activation_function);
+        } else {
+            println!("Unknown layer type: {}", layer_type);
+            return;
+        }
     }
 
     let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
@@ -267,7 +291,12 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
         );
 
         if thread_count > &1 {
-            network.parallel_stochastic_gradient_descent(training_data, *thread_count, *batch_size, *learning_rate);
+            if cfg!(feature = "threads") {
+                #[cfg(feature = "threads")]
+                network.parallel_stochastic_gradient_descent(training_data, *thread_count, *batch_size, *learning_rate);
+            } else {
+                panic!("Threads not supported!");
+            }
         } else {
             network.stochastic_gradient_descent(training_data, *batch_size, *learning_rate);
         }
