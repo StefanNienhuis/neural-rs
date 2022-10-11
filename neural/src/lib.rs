@@ -1,12 +1,15 @@
 extern crate core;
 
-pub mod network;
-pub mod back_propagation;
 pub mod activation_function;
+pub mod back_propagation;
 pub mod cost_function;
 pub mod layer;
+pub mod network;
 
-pub use self::{network::Network, activation_function::ActivationFunction, cost_function::CostFunction, layer::Layer};
+pub use self::{
+    activation_function::ActivationFunction, cost_function::CostFunction,
+    layer::BackpropagationResult, layer::Layer, network::Network,
+};
 
 #[cfg(feature = "high-precision")]
 pub type Float = f64;

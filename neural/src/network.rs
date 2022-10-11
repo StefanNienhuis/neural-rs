@@ -1,6 +1,6 @@
-use crate::{CostFunction, Layer, Float};
+use crate::{CostFunction, Float, Layer};
 
-use nalgebra::{DVector};
+use nalgebra::DVector;
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct Network {
@@ -9,16 +9,15 @@ pub struct Network {
     pub layers: Vec<Box<dyn Layer>>,
 
     /// The cost function for the network.
-    pub cost_function: CostFunction
+    pub cost_function: CostFunction,
 }
 
 impl Network {
-
     pub fn new(cost_function: CostFunction) -> Self {
         return Self {
             layers: vec![],
-            cost_function
-        }
+            cost_function,
+        };
     }
 
     pub fn add_layer<L: Layer + Clone + 'static>(&mut self, layer: L) {
@@ -38,5 +37,4 @@ impl Network {
 
         return activation.data.into();
     }
-
 }

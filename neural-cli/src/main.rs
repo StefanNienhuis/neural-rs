@@ -1,12 +1,12 @@
-mod io;
 mod idx;
+mod io;
 
 use bincode;
+use clap::{ArgAction, Parser, Subcommand};
+use neural::{layer, ActivationFunction, CostFunction, Float, Network};
+use rand::seq::SliceRandom;
 use std::path::PathBuf;
-use std::{process};
-use clap::{Parser, Subcommand, ArgAction};
-use rand::{seq::SliceRandom};
-use neural::{Network, ActivationFunction, CostFunction, Float, layer};
+use std::process;
 
 #[cfg(feature = "high-precision")]
 static FILE_EXTENSION: &str = "nn64";
@@ -35,12 +35,18 @@ enum Commands {
         ///
         /// Specified with [activation_function]:[size].
         /// Must start with input:[size]
-        #[clap(short, long="layer", action(ArgAction::Append), min_values(2), required(true))]
+        #[clap(
+            short,
+            long = "layer",
+            action(ArgAction::Append),
+            min_values(2),
+            required(true)
+        )]
         layers: Vec<String>,
 
         /// The cost function
         #[clap(short, long)]
-        cost_function: String
+        cost_function: String,
     },
 
     /// Train a neural network with the provided data set
@@ -55,19 +61,19 @@ enum Commands {
         labels: PathBuf,
 
         /// The learning rate
-        #[clap(short='r', long)]
+        #[clap(short = 'r', long)]
         learning_rate: Float,
 
         /// The thread count
-        #[clap(short='p', long, default_value = "1")]
+        #[clap(short = 'p', long, default_value = "1")]
         thread_count: usize,
 
         /// The batch size
-        #[clap(short='s', long, default_value = "10")]
+        #[clap(short = 's', long, default_value = "10")]
         batch_size: usize,
 
         /// The number of batches to train, defaulting to all batches
-        #[clap(short='c', long)]
+        #[clap(short = 'c', long)]
         batch_count: Option<usize>,
 
         /// The amount of times it should train
@@ -80,7 +86,7 @@ enum Commands {
 
         /// If provided, tests the network with these labels at every epoch
         #[clap(long, requires("test-inputs"))]
-        test_labels: Option<PathBuf>
+        test_labels: Option<PathBuf>,
     },
 
     /// Test a neural network with the provided data set
@@ -96,7 +102,7 @@ enum Commands {
 
         /// The amount of samples to test
         #[clap(short, long)]
-        count: Option<usize>
+        count: Option<usize>,
     },
 
     /// Evaluate a neural network with the provided input
@@ -109,23 +115,59 @@ enum Commands {
 
         // The output file
         #[clap(short, long, value_name = "FILE")]
-        output: Option<PathBuf>
-    }
-
+        output: Option<PathBuf>,
+    },
 }
 
 fn main() {
     ctrlc::set_handler(|| {
         process::exit(0);
-    }).expect("Error while settings Ctrl-C handler");
+    })
+    .expect("Error while settings Ctrl-C handler");
 
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Create { network, layers, cost_function } => create(network, layers, cost_function),
-        Commands::Train { network, inputs, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_inputs, test_labels } => train(network, inputs, labels, learning_rate, thread_count, batch_size, batch_count, epochs, test_inputs, test_labels, cli.verbose),
-        Commands::Test { network, inputs, labels, count } => test(network, inputs, labels, count, cli.verbose),
-        Commands::Evaluate { network, input, output } => evaluate(network, input, output)
+        Commands::Create {
+            network,
+            layers,
+            cost_function,
+        } => create(network, layers, cost_function),
+        Commands::Train {
+            network,
+            inputs,
+            labels,
+            learning_rate,
+            thread_count,
+            batch_size,
+            batch_count,
+            epochs,
+            test_inputs,
+            test_labels,
+        } => train(
+            network,
+            inputs,
+            labels,
+            learning_rate,
+            thread_count,
+            batch_size,
+            batch_count,
+            epochs,
+            test_inputs,
+            test_labels,
+            cli.verbose,
+        ),
+        Commands::Test {
+            network,
+            inputs,
+            labels,
+            count,
+        } => test(network, inputs, labels, count, cli.verbose),
+        Commands::Evaluate {
+            network,
+            input,
+            output,
+        } => evaluate(network, input, output),
     }
 }
 
@@ -177,7 +219,11 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
             };
 
             if let Some(last_layer) = network.layers.last() {
-                network.add_layer(layer::FullyConnected::new(last_layer.size(), size, activation_function));
+                network.add_layer(layer::FullyConnected::new(
+                    last_layer.size(),
+                    size,
+                    activation_function,
+                ));
             } else {
                 println!("No previous layer to connect fully connected layer to");
                 return;
@@ -194,21 +240,30 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
         Err(error) => {
             println!("Couldn't write to {}: {}", network_path.display(), error);
             return;
-        },
-        Ok(_) => println!("Created a new neural network at {}", network_path.display())
+        }
+        Ok(_) => println!("Created a new neural network at {}", network_path.display()),
     };
 }
 
-fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
-         learning_rate: &Float, thread_count: &usize, batch_size: &usize, batch_count: &Option<usize>, epochs: &usize,
-         test_inputs: &Option<PathBuf>, test_labels: &Option<PathBuf>, verbose: bool) {
-
+fn train(
+    network_path: &PathBuf,
+    inputs_path: &PathBuf,
+    labels_path: &PathBuf,
+    learning_rate: &Float,
+    thread_count: &usize,
+    batch_size: &usize,
+    batch_count: &Option<usize>,
+    epochs: &usize,
+    test_inputs: &Option<PathBuf>,
+    test_labels: &Option<PathBuf>,
+    verbose: bool,
+) {
     let mut network = match io::read_network_file(network_path) {
         Err(error) => {
             println!("Error while reading network: {}", error);
             return;
         }
-        Ok(network) => network
+        Ok(network) => network,
     };
 
     let inputs: Vec<Vec<_>> = match io::read_idx_file(inputs_path) {
@@ -216,7 +271,7 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
             println!("Error while reading inputs: {}", error);
             return;
         }
-        Ok(idx) => idx.items
+        Ok(idx) => idx.items,
     };
 
     let labels = match io::read_idx_file(labels_path) {
@@ -224,7 +279,7 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
             println!("Error while reading labels: {}", error);
             return;
         }
-        Ok(idx) => idx.items
+        Ok(idx) => idx.items,
     };
 
     let test_inputs: Option<Vec<Vec<_>>> = match test_inputs {
@@ -233,9 +288,9 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
                 println!("Error while reading test inputs: {}", error);
                 return;
             }
-            Ok(idx) => Some(idx.items)
+            Ok(idx) => Some(idx.items),
         },
-        None => None
+        None => None,
     };
 
     let test_labels: Option<Vec<Vec<_>>> = match test_labels {
@@ -244,23 +299,33 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
                 println!("Error while reading test labels: {}", error);
                 return;
             }
-            Ok(idx) => Some(idx.items)
-        }
-        None => None
+            Ok(idx) => Some(idx.items),
+        },
+        None => None,
     };
 
     let inputs_len = inputs.len();
 
-    let training_data: Vec<(Vec<Float>, Vec<Float>)> =
-        inputs.into_iter()
-            .map(|input| input.into_iter().map(|x| Float::from(x) / 255.0).collect::<Vec<_>>())
-            // If expected output is a Vec with a single item, it is seen as an index. If it has multiple items, it is seen as an output.
-            .zip(outputs_from_labels(&network, labels).into_iter())
-            .collect();
+    let training_data: Vec<(Vec<Float>, Vec<Float>)> = inputs
+        .into_iter()
+        .map(|input| {
+            input
+                .into_iter()
+                .map(|x| Float::from(x) / 255.0)
+                .collect::<Vec<_>>()
+        })
+        // If expected output is a Vec with a single item, it is seen as an index. If it has multiple items, it is seen as an output.
+        .zip(outputs_from_labels(&network, labels).into_iter())
+        .collect();
 
     let mut test_data = match (test_inputs, test_labels) {
-        (Some(test_inputs), Some(test_labels)) => Some(test_inputs.into_iter().zip(test_labels.into_iter()).collect::<Vec<(Vec<u8>, Vec<u8>)>>()),
-        _ => None
+        (Some(test_inputs), Some(test_labels)) => Some(
+            test_inputs
+                .into_iter()
+                .zip(test_labels.into_iter())
+                .collect::<Vec<(Vec<u8>, Vec<u8>)>>(),
+        ),
+        _ => None,
     };
 
     let mut rng = rand::thread_rng();
@@ -272,19 +337,20 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
 
         training_data.shuffle(&mut rng);
 
-        training_data = training_data.into_iter().take(
-            match batch_count {
+        training_data = training_data
+            .into_iter()
+            .take(match batch_count {
                 Some(batch_count) => batch_size * batch_count,
-                None => inputs_len
-            }
-        ).collect();
+                None => inputs_len,
+            })
+            .collect();
 
         println!(
             "Starting epoch {} training with {} batches of size {} and {} total samples",
             i + 1,
             match batch_count {
                 Some(batch_count) => batch_count.to_string(),
-                None => "all".to_string()
+                None => "all".to_string(),
             },
             batch_size,
             training_data.len()
@@ -293,7 +359,12 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
         if thread_count > &1 {
             if cfg!(feature = "threads") {
                 #[cfg(feature = "threads")]
-                network.parallel_stochastic_gradient_descent(training_data, *thread_count, *batch_size, *learning_rate);
+                network.parallel_stochastic_gradient_descent(
+                    training_data,
+                    *thread_count,
+                    *batch_size,
+                    *learning_rate,
+                );
             } else {
                 panic!("Threads not supported!");
             }
@@ -317,21 +388,33 @@ fn train(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf,
 
     match io::write_file(&encoded, network_path, false, Some(FILE_EXTENSION)) {
         Err(error) => {
-            println!("Error while saving network to {}: {}", network_path.display(), error);
+            println!(
+                "Error while saving network to {}: {}",
+                network_path.display(),
+                error
+            );
             return;
-        },
-        Ok(_) => println!("Finished training. Saved the neural network to {}", network_path.display())
+        }
+        Ok(_) => println!(
+            "Finished training. Saved the neural network to {}",
+            network_path.display()
+        ),
     };
-
 }
 
-fn test(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf, count: &Option<usize>, verbose: bool) {
+fn test(
+    network_path: &PathBuf,
+    inputs_path: &PathBuf,
+    labels_path: &PathBuf,
+    count: &Option<usize>,
+    verbose: bool,
+) {
     let network = match io::read_network_file(network_path) {
         Err(error) => {
             println!("Error while reading network: {}", error);
             return;
         }
-        Ok(network) => network
+        Ok(network) => network,
     };
 
     let inputs: Vec<Vec<u8>> = match io::read_idx_file(inputs_path) {
@@ -339,7 +422,7 @@ fn test(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf, co
             println!("Error while reading inputs: {}", error);
             return;
         }
-        Ok(idx) => idx.items
+        Ok(idx) => idx.items,
     };
 
     let labels: Vec<Vec<u8>> = match io::read_idx_file(labels_path) {
@@ -347,12 +430,13 @@ fn test(network_path: &PathBuf, inputs_path: &PathBuf, labels_path: &PathBuf, co
             println!("Error while reading labels: {}", error);
             return;
         }
-        Ok(idx) => idx.items
+        Ok(idx) => idx.items,
     };
 
     let count = count.unwrap_or(inputs.len());
 
-    let mut test_data: Vec<(Vec<u8>, Vec<u8>)> = inputs.iter().cloned().zip(labels.iter().cloned()).collect();
+    let mut test_data: Vec<(Vec<u8>, Vec<u8>)> =
+        inputs.iter().cloned().zip(labels.iter().cloned()).collect();
     let mut rng = rand::thread_rng();
 
     test_data.shuffle(&mut rng);
@@ -374,30 +458,47 @@ fn test_only(network: &Network, test_batch: &[(Vec<u8>, Vec<u8>)], verbose: bool
 
         if label.len() == 1 {
             let label = label[0];
-            let (result, probability) = result.iter().enumerate().max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap()).unwrap();
+            let (result, probability) = result
+                .iter()
+                .enumerate()
+                .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
+                .unwrap();
 
             if result != usize::from(label) {
                 if verbose {
-                    println!("Wrong: {} = {} @ {:.2}%", label, result, probability * 100.0);
+                    println!(
+                        "Wrong: {} = {} @ {:.2}%",
+                        label,
+                        result,
+                        probability * 100.0
+                    );
                 }
             } else {
                 if verbose {
-                    println!("Correct: {} = {} @ {:.2}%", label, result, probability * 100.0);
+                    println!(
+                        "Correct: {} = {} @ {:.2}%",
+                        label,
+                        result,
+                        probability * 100.0
+                    );
                 }
 
                 accuracy += 1.0;
             }
         } else {
-            let expected_output = outputs_from_labels(network, vec![label.clone()]).into_iter().next().unwrap();
+            let expected_output = outputs_from_labels(network, vec![label.clone()])
+                .into_iter()
+                .next()
+                .unwrap();
 
             let output_len = expected_output.len();
 
-            accuracy += result.into_iter().zip(expected_output.into_iter())
-                                          .map(|(r, e)| (r - e).abs()) // Calculate the absolute error
-                                          .fold(1.0, |a, x| a - (x / output_len as Float)); // Calculate the accuracy with the average error
+            accuracy += result
+                .into_iter()
+                .zip(expected_output.into_iter())
+                .map(|(r, e)| (r - e).abs()) // Calculate the absolute error
+                .fold(1.0, |a, x| a - (x / output_len as Float)); // Calculate the accuracy with the average error
         }
-
-
     }
 
     return accuracy / test_batch.len() as Float;
@@ -409,7 +510,7 @@ fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<P
             println!("{}", error);
             return;
         }
-        Ok(network) => network
+        Ok(network) => network,
     };
 
     let input_data: Vec<Float> = match io::read_file(input_path) {
@@ -417,20 +518,29 @@ fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<P
             println!("Error while reading input: {}", error);
             return;
         }
-        Ok(network) => network.iter().map(|x| Float::from(*x) / 255.0).collect()
+        Ok(network) => network.iter().map(|x| Float::from(*x) / 255.0).collect(),
     };
 
     if input_data.len() != *network.shape().first().unwrap_or(&0) {
-        println!("Incorrect input data length ({}) should be {}", input_data.len(), network.shape().first().unwrap_or(&0));
+        println!(
+            "Incorrect input data length ({}) should be {}",
+            input_data.len(),
+            network.shape().first().unwrap_or(&0)
+        );
         return;
     }
 
     let output = network.feed_forward(input_data);
 
     if let Some(output_path) = output_path {
-        match io::write_file(&output.into_iter().map(|x| (x * 255.0) as u8).collect(), output_path, true, None) {
+        match io::write_file(
+            &output.into_iter().map(|x| (x * 255.0) as u8).collect(),
+            output_path,
+            true,
+            None,
+        ) {
             Err(error) => println!("Error while saving output: {}", error),
-            Ok(_) => println!("Saved output to {}", output_path.display())
+            Ok(_) => println!("Saved output to {}", output_path.display()),
         }
     } else {
         for (i, p) in output.iter().enumerate() {
@@ -442,13 +552,19 @@ fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<P
 fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<Float>> {
     let labels_len = labels[0].len();
 
-    labels.into_iter().map(|label| {
-        return if labels_len == 1 && network.shape()[0] != 1 {
-            let mut output = vec![0.0; network.shape().last().unwrap().clone()];
-            output[usize::from(label[0])] = 1.0;
-            output
-        } else {
-            label.into_iter().map(|x| Float::from(x) / 255.0).collect::<Vec<_>>()
-        }
-    }).collect()
+    labels
+        .into_iter()
+        .map(|label| {
+            return if labels_len == 1 && network.shape()[0] != 1 {
+                let mut output = vec![0.0; network.shape().last().unwrap().clone()];
+                output[usize::from(label[0])] = 1.0;
+                output
+            } else {
+                label
+                    .into_iter()
+                    .map(|x| Float::from(x) / 255.0)
+                    .collect::<Vec<_>>()
+            };
+        })
+        .collect()
 }

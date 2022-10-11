@@ -1,18 +1,16 @@
-mod input;
 mod fully_connected;
+mod input;
 
-pub use input::Input;
 pub use fully_connected::FullyConnected;
+pub use input::Input;
 
+use crate::{CostFunction, Float};
+use nalgebra::DVector;
 use std::any::Any;
 use std::fmt::Debug;
-use nalgebra::{DVector};
-use crate::{Float, CostFunction};
-
 
 #[typetag::serde(tag = "type")]
 pub trait Layer: Sync {
-
     /// Boolean indicating whether this layer is trainable.
     fn trainable(&self) -> bool;
 
@@ -28,7 +26,15 @@ pub trait Layer: Sync {
     /// Back propagate the error through this layer.
     /// Next error is the intermediate error value from the previous layer, which will be updated and passed on to the next layer.
     /// Returns a back propagation result struct (e.g. delta_weight_gradient, delta_bias_gradient).
-    fn back_propagate(&self, next_error: &mut DVector<Float>, previous_activation: &DVector<Float>, weighted_input: &DVector<Float>, activation: &DVector<Float>, expected_output: &DVector<Float>, cost_function: &CostFunction) -> Box<dyn BackpropagationResult>;
+    fn back_propagate(
+        &self,
+        next_error: &mut DVector<Float>,
+        previous_activation: &DVector<Float>,
+        weighted_input: &DVector<Float>,
+        activation: &DVector<Float>,
+        expected_output: &DVector<Float>,
+        cost_function: &CostFunction,
+    ) -> Box<dyn BackpropagationResult>;
 
     fn apply_results(&mut self, results: Vec<Box<dyn BackpropagationResult>>, learning_rate: Float);
 
@@ -37,15 +43,11 @@ pub trait Layer: Sync {
 }
 
 pub trait BackpropagationResult: Debug {
-    
     fn as_any(&self) -> &dyn Any;
-
 }
 
 impl BackpropagationResult for () {
-
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
 }

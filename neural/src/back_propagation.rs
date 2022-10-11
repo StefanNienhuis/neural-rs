@@ -1,19 +1,26 @@
-use crate::{Network, Float};
+use crate::{Float, Network};
 
-use nalgebra::{DVector};
-use rand::{seq::SliceRandom};
 use crate::layer::BackpropagationResult;
+use nalgebra::DVector;
+use rand::seq::SliceRandom;
 
 // #[cfg(feature = "threads")]
 // use crossbeam_utils::{thread};
 
 impl Network {
-
     /// Train the network using stochastic gradient descent
     ///
     /// *Single threaded*
-    pub fn stochastic_gradient_descent(&mut self, training_data: Vec<(Vec<Float>, Vec<Float>)>, batch_size: usize, learning_rate: Float) {
-        let mut training_data: Vec<(DVector<Float>, DVector<Float>)> = training_data.into_iter().map(|(input, output)| (input.into(), output.into())).collect();
+    pub fn stochastic_gradient_descent(
+        &mut self,
+        training_data: Vec<(Vec<Float>, Vec<Float>)>,
+        batch_size: usize,
+        learning_rate: Float,
+    ) {
+        let mut training_data: Vec<(DVector<Float>, DVector<Float>)> = training_data
+            .into_iter()
+            .map(|(input, output)| (input.into(), output.into()))
+            .collect();
 
         let mut rng = rand::thread_rng();
 
@@ -34,7 +41,13 @@ impl Network {
     /// Train the network using parallel stochastic gradient descent
     ///
     /// *Multithreaded*
-    pub fn parallel_stochastic_gradient_descent(&mut self, _training_data: Vec<(Vec<Float>, Vec<Float>)>, _thread_count: usize, _batch_size: usize, _learning_rate: Float) {
+    pub fn parallel_stochastic_gradient_descent(
+        &mut self,
+        _training_data: Vec<(Vec<Float>, Vec<Float>)>,
+        _thread_count: usize,
+        _batch_size: usize,
+        _learning_rate: Float,
+    ) {
         todo!()
         // let mut training_data: Vec<(DVector<Float>, DVector<Float>)> = training_data.into_iter().map(|(input, output)| (input.into(), output.into())).collect();
         //
@@ -113,7 +126,10 @@ impl Network {
     }
 
     /// Calculate the weight and bias gradients for a specific SGD batch
-    fn train_sgd_batch(&self, batch: &[(DVector<Float>, DVector<Float>)]) -> Vec<Vec<Box<dyn BackpropagationResult>>> {
+    fn train_sgd_batch(
+        &self,
+        batch: &[(DVector<Float>, DVector<Float>)],
+    ) -> Vec<Vec<Box<dyn BackpropagationResult>>> {
         // TODO: Somehow allow addition of dyn BackpropagationResult to remove nested Vec need.
         let mut results: Vec<Vec<Box<dyn BackpropagationResult>>> = vec![];
 
@@ -129,14 +145,21 @@ impl Network {
 
                 first = false;
             } else {
-                results.iter_mut().zip(batch_results).for_each(|(results, new)| results.push(new));
+                results
+                    .iter_mut()
+                    .zip(batch_results)
+                    .for_each(|(results, new)| results.push(new));
             }
         }
 
         return results;
     }
 
-    fn back_propagate(&self, input: &DVector<Float>, expected_output: &DVector<Float>) -> Vec<Box<dyn BackpropagationResult>> {
+    fn back_propagate(
+        &self,
+        input: &DVector<Float>,
+        expected_output: &DVector<Float>,
+    ) -> Vec<Box<dyn BackpropagationResult>> {
         let mut results: Vec<Box<dyn BackpropagationResult>> = vec![];
 
         let mut activations: Vec<DVector<Float>> = vec![input.clone()];
@@ -156,11 +179,15 @@ impl Network {
         for (i, layer) in self.layers.iter().enumerate().rev() {
             let result = layer.back_propagate(
                 &mut next_error,
-                if i == 0 { &activations[0] } else { &activations[i - 1] },
+                if i == 0 {
+                    &activations[0]
+                } else {
+                    &activations[i - 1]
+                },
                 &weighted_inputs[i],
                 &activations[i],
                 expected_output,
-                &self.cost_function
+                &self.cost_function,
             );
 
             if layer.trainable() {
@@ -170,5 +197,4 @@ impl Network {
 
         return results;
     }
-
 }

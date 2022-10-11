@@ -1,7 +1,7 @@
 mod utils;
 
-use wasm_bindgen::prelude::*;
 use neural::Float;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -10,20 +10,19 @@ pub fn main() {
 
 #[wasm_bindgen]
 pub struct Network {
-    network: neural::network::Network
+    network: neural::network::Network,
 }
 
 #[wasm_bindgen]
 impl Network {
-
     #[wasm_bindgen(constructor)]
     pub fn new(network: &[u8]) -> Self {
         return Self {
             network: match bincode::decode_from_slice(network, bincode::config::standard()) {
                 Err(error) => panic!("Couldn't parse network: {}", error),
-                Ok((network, _)) => network
-            }
-        }
+                Ok((network, _)) => network,
+            },
+        };
     }
 
     /// Returns the shape of the network.
@@ -40,5 +39,4 @@ impl Network {
     pub fn feed_forward(&self, input: &[Float]) -> Box<[Float]> {
         return self.network.feed_forward(input.to_vec()).into_boxed_slice();
     }
-
 }
