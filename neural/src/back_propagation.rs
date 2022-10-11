@@ -1,7 +1,8 @@
 use crate::{Network, Float};
 
-use nalgebra::{DMatrix, DVector};
+use nalgebra::{DVector};
 use rand::{seq::SliceRandom};
+use crate::layer::BackpropagationResult;
 
 // #[cfg(feature = "threads")]
 // use crossbeam_utils::{thread};
@@ -19,12 +20,13 @@ impl Network {
         training_data.shuffle(&mut rng);
 
         for batch in training_data.chunks(batch_size) {
-            let (weight_gradients, bias_gradients) = self.train_sgd_batch(batch);
+            let results = self.train_sgd_batch(batch);
 
-            for i in 1..self.layers.len() {
-                self.layers[i].apply_weight_gradient((learning_rate / batch.len() as Float) * &weight_gradients[i - 1]);
-                self.layers[i].apply_bias_gradient((learning_rate / batch.len() as Float) * &bias_gradients[i - 1])
-            }
+            self.layers
+                .iter_mut()
+                .filter(|l| l.trainable())
+                .zip(results.into_iter())
+                .for_each(|(l, r)| l.apply_results(r, learning_rate));
         }
     }
 
@@ -111,39 +113,33 @@ impl Network {
     }
 
     /// Calculate the weight and bias gradients for a specific SGD batch
-    fn train_sgd_batch(&self, batch: &[(DVector<Float>, DVector<Float>)]) -> (Vec<DMatrix<Float>>, Vec<DVector<Float>>) {
-        let mut weight_gradients: Vec<DMatrix<Float>> = vec![];
-        let mut bias_gradients: Vec<DVector<Float>> = vec![];
+    fn train_sgd_batch(&self, batch: &[(DVector<Float>, DVector<Float>)]) -> Vec<Vec<Box<dyn BackpropagationResult>>> {
+        // TODO: Somehow allow addition of dyn BackpropagationResult to remove nested Vec need.
+        let mut results: Vec<Vec<Box<dyn BackpropagationResult>>> = vec![];
 
         let mut first = true;
 
         // Calculate the weight and bias gradients for a specific training sample
         for (input, expected_output) in batch {
-            let (delta_weight_gradients, delta_bias_gradients) = self.back_propagate(input, expected_output);
+            let batch_results = self.back_propagate(input, expected_output);
 
             // On first run, gradient = 0 + delta = delta
             if first {
-                weight_gradients = delta_weight_gradients;
-                bias_gradients = delta_bias_gradients;
+                results = batch_results.into_iter().map(|x| vec![x]).collect();
 
                 first = false;
             } else {
-                weight_gradients = weight_gradients.iter().zip(delta_weight_gradients.iter()).map(|(gradient, delta)| gradient + delta).collect();
-                bias_gradients = bias_gradients.iter().zip(delta_bias_gradients.iter()).map(|(gradient, delta)| gradient + delta).collect();
+                results.iter_mut().zip(batch_results).for_each(|(results, new)| results.push(new));
             }
         }
 
-        return (weight_gradients, bias_gradients);
+        return results;
     }
 
-    fn back_propagate(&self, input: &DVector<Float>, expected_output: &DVector<Float>) -> (Vec<DMatrix<Float>>, Vec<DVector<Float>>) {
-        // Gradients do not have an entry for the input layer
-        let mut weight_gradients: Vec<DMatrix<Float>> = self.layers.iter().skip(1).map(|x| x.zeroed_weight_gradient()).collect();
-        let mut bias_gradients: Vec<DVector<Float>> = self.layers.iter().skip(1).map(|x| x.zeroed_bias_gradient()).collect();
+    fn back_propagate(&self, input: &DVector<Float>, expected_output: &DVector<Float>) -> Vec<Box<dyn BackpropagationResult>> {
+        let mut results: Vec<Box<dyn BackpropagationResult>> = vec![];
 
         let mut activations: Vec<DVector<Float>> = vec![input.clone()];
-
-        // Activations before the activation function - starts with actual input as this isn't weighted
         let mut weighted_inputs: Vec<DVector<Float>> = vec![input.clone()];
 
         for layer in self.layers.iter().skip(1) {
@@ -153,29 +149,26 @@ impl Network {
             weighted_inputs.push(weighted_input);
         }
 
-        let output_layer = self.layers.len() - 1;
-
-        // Calculate the error in the output layer
-        let mut error: DVector<Float> =
-            self.layers.last().expect("No layers")
-                .output_error(
-                    &self.cost_function,
-                    weighted_inputs.last().expect("No output"),
-                    activations.last().expect("No output"),
-                    expected_output);
-
-        weight_gradients[output_layer - 1] = &error * activations[output_layer - 1].transpose();
-        bias_gradients[output_layer - 1] = error.clone();
+        // Intermediate error value passed between layers
+        let mut next_error: DVector<Float> = DVector::zeros(0);
 
         // Calculate the errors per layer from the last hidden layer to the first
-        for i in (1..output_layer).rev() {
-            error = self.layers[i + 1].error(&weighted_inputs[i], &error);
+        for (i, layer) in self.layers.iter().enumerate().rev() {
+            let result = layer.back_propagate(
+                &mut next_error,
+                if i == 0 { &activations[0] } else { &activations[i - 1] },
+                &weighted_inputs[i],
+                &activations[i],
+                expected_output,
+                &self.cost_function
+            );
 
-            weight_gradients[i - 1] = &error * activations[i - 1].transpose();
-            bias_gradients[i - 1] = error.clone();
+            if layer.trainable() {
+                results.insert(0, result);
+            }
         }
 
-        return (weight_gradients, bias_gradients);
+        return results;
     }
 
 }

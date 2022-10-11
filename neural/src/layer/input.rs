@@ -1,9 +1,10 @@
 use crate::{Float, Layer, CostFunction};
 
-use nalgebra::{DMatrix, DVector};
+use nalgebra::{DVector};
 use serde::{Serialize, Deserialize};
+use crate::layer::BackpropagationResult;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Input {
     pub size: usize
 }
@@ -21,6 +22,8 @@ impl Input {
 #[typetag::serde]
 impl Layer for Input {
 
+    fn trainable(&self) -> bool { false }
+
     fn feed_forward(&self, input: &DVector<Float>) -> DVector<Float> {
         input.clone()
     }
@@ -33,28 +36,12 @@ impl Layer for Input {
         weighted_input.clone()
     }
 
-    fn zeroed_weight_gradient(&self) -> DMatrix<Float> {
-        DMatrix::zeros(0,0)
+    fn back_propagate(&self, _error: &mut DVector<Float>, _previous_weighted_input: &DVector<Float>, _previous_activation: &DVector<Float>, _weighted_input: &DVector<Float>, _expected_output: &DVector<Float>, _cost_function: &CostFunction) -> Box<dyn BackpropagationResult> {
+        return Box::new(());
     }
 
-    fn zeroed_bias_gradient(&self) -> DVector<Float> {
-        DVector::zeros(0)
-    }
-
-    fn output_error(&self, _cost_function: &CostFunction, _weighted_input: &DVector<Float>, _output: &DVector<Float>, _expected_output: &DVector<Float>) -> DVector<Float> {
-        panic!("Output error cannot be calculated on input layer")
-    }
-
-    fn error(&self, _weighted_input: &DVector<Float>, _previous_error: &DVector<Float>) -> DVector<Float> {
-        panic!("Error cannot be calculated on input layer")
-    }
-
-    fn apply_weight_gradient(&mut self, _gradient: DMatrix<Float>) {
-        panic!("Cannot apply weight gradient to input layer");
-    }
-
-    fn apply_bias_gradient(&mut self, _gradient: DVector<Float>) {
-        panic!("Cannot apply bias gradient to input layer");
+    fn apply_results(&mut self, _results: Vec<Box<dyn BackpropagationResult>>, _learning_rate: Float) {
+        panic!("Cannot apply results to input layer");
     }
 
     fn size(&self) -> usize {

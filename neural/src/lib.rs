@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod network;
 pub mod back_propagation;
 pub mod activation_function;
