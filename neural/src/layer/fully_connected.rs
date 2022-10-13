@@ -1,10 +1,11 @@
-use crate::{layer::BackpropagationResult, ActivationFunction, CostFunction, Float, Layer};
+use crate::{layer::BackpropagationResult, ActivationFunction, Float, Layer};
 
 use nalgebra::{DMatrix, DVector};
 use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
+/// Fully connected layer
 #[derive(Clone, Serialize, Deserialize)]
 pub struct FullyConnected {
     pub weights: DMatrix<Float>,
@@ -37,10 +38,6 @@ impl Layer for FullyConnected {
         true
     }
 
-    fn feed_forward(&self, input: &DVector<Float>) -> DVector<Float> {
-        self.activation(&self.weighted_input(input))
-    }
-
     fn weighted_input(&self, input: &DVector<Float>) -> DVector<Float> {
         &self.weights * input + &self.biases
     }
@@ -54,22 +51,9 @@ impl Layer for FullyConnected {
         next_error: &mut DVector<Float>,
         previous_activation: &DVector<Float>,
         weighted_input: &DVector<Float>,
-        activation: &DVector<Float>,
-        expected_output: &DVector<Float>,
-        cost_function: &CostFunction,
     ) -> Box<dyn BackpropagationResult> {
-        let error: DVector<Float>;
-
-        if next_error.len() == 0 {
-            // If first back propagation layer, initialize error with the output error equation.
-            error = cost_function
-                .derivative(activation, expected_output)
-                .component_mul(&weighted_input.map(|x| self.activation_function.derivative(x)));
-        } else {
-            // If not first back propagation layer, multiply the intermediate error value by the activation function derivative of the weighted input.
-            error = next_error
-                .component_mul(&weighted_input.map(|x| self.activation_function.derivative(x)));
-        }
+        let error = next_error
+            .component_mul(&weighted_input.map(|x| self.activation_function.derivative(x)));
 
         let result = FullyConnectedBackpropagationResult {
             delta_weight_gradient: &error * previous_activation.transpose(),

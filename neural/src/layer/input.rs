@@ -1,9 +1,10 @@
-use crate::{CostFunction, Float, Layer};
+use crate::{Float, Layer};
 
 use crate::layer::BackpropagationResult;
 use nalgebra::DVector;
 use serde::{Deserialize, Serialize};
 
+/// Input layer
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Input {
     pub size: usize,
@@ -36,11 +37,8 @@ impl Layer for Input {
     fn back_propagate(
         &self,
         _error: &mut DVector<Float>,
-        _previous_weighted_input: &DVector<Float>,
         _previous_activation: &DVector<Float>,
         _weighted_input: &DVector<Float>,
-        _expected_output: &DVector<Float>,
-        _cost_function: &CostFunction,
     ) -> Box<dyn BackpropagationResult> {
         return Box::new(());
     }

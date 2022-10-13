@@ -1,4 +1,5 @@
 use crate::Float;
+use std::str::FromStr;
 
 use nalgebra::DVector;
 
@@ -40,12 +41,16 @@ impl CostFunction {
             Self::MeanSquaredError => output - expected_output,
         }
     }
+}
 
-    pub fn from(string: &str) -> Option<Self> {
-        match string {
-            "mae" | "mean-absolute-error" => Some(Self::MeanAbsoluteError),
-            "mse" | "mean-squared-error" => Some(Self::MeanSquaredError),
-            _ => None,
+impl FromStr for CostFunction {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mae" | "mean-absolute-error" => Ok(Self::MeanAbsoluteError),
+            "mse" | "mean-squared-error" => Ok(Self::MeanSquaredError),
+            _ => Err(()),
         }
     }
 }

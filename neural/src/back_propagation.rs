@@ -173,7 +173,9 @@ impl Network {
         }
 
         // Intermediate error value passed between layers
-        let mut next_error: DVector<Float> = DVector::zeros(0);
+        let mut next_error: DVector<Float> = self
+            .cost_function
+            .derivative(activations.last().expect("No activations"), expected_output);
 
         // Calculate the errors per layer from the last hidden layer to the first
         for (i, layer) in self.layers.iter().enumerate().rev() {
@@ -185,9 +187,6 @@ impl Network {
                     &activations[i - 1]
                 },
                 &weighted_inputs[i],
-                &activations[i],
-                expected_output,
-                &self.cost_function,
             );
 
             if layer.trainable() {

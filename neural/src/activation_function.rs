@@ -1,4 +1,5 @@
 use crate::Float;
+use std::str::FromStr;
 
 use rand::Rng;
 use rand_distr::Normal;
@@ -72,26 +73,30 @@ impl ActivationFunction {
             }
         }
     }
+}
 
-    /// Initialize the activation function from a name string.
-    pub fn from(string: &str) -> Option<Self> {
-        if string.starts_with("leakyrelu(") && string.ends_with(")") {
-            let alpha_start = string.find("(").expect("Couldn't find open");
-            let alpha_end = string.find(")").expect("Couldn't find end");
+impl FromStr for ActivationFunction {
+    type Err = ();
 
-            let alpha = string[alpha_start + 1..alpha_end]
-                .parse::<Float>()
-                .expect("Couldn't parse alpha value");
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with("leakyrelu(") && s.ends_with(")") {
+            let alpha_start = s.find("(").expect("Couldn't find open");
+            let alpha_end = s.find(")").expect("Couldn't find end");
 
-            return Some(Self::LeakyReLU(alpha));
+            let alpha = match s[alpha_start + 1..alpha_end].parse::<Float>() {
+                Ok(alpha) => alpha,
+                Err(_) => return Err(()),
+            };
+
+            return Ok(Self::LeakyReLU(alpha));
         }
 
-        match string.to_lowercase().as_str() {
-            "input" => Some(Self::Input),
-            "sigmoid" => Some(Self::Sigmoid),
-            "relu" => Some(Self::ReLU),
-            "tanh" => Some(Self::Tanh),
-            _ => None,
+        match s.to_lowercase().as_str() {
+            "input" => Ok(Self::Input),
+            "sigmoid" => Ok(Self::Sigmoid),
+            "relu" => Ok(Self::ReLU),
+            "tanh" => Ok(Self::Tanh),
+            _ => Err(()),
         }
     }
 }

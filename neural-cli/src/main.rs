@@ -3,8 +3,10 @@ mod io;
 
 use bincode;
 use clap::{ArgAction, Parser, Subcommand};
+use neural::layer::PoolType;
 use neural::{layer, ActivationFunction, CostFunction, Float, Network};
 use rand::seq::SliceRandom;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::process;
 
@@ -172,9 +174,9 @@ fn main() {
 }
 
 fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
-    let cost_function = match CostFunction::from(cost_function.as_str()) {
-        Some(cost_function) => cost_function,
-        None => {
+    let cost_function: CostFunction = match cost_function.parse() {
+        Ok(cost_function) => cost_function,
+        Err(_) => {
             println!("Invalid cost function: {}", cost_function);
             return;
         }
@@ -189,8 +191,8 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
         if layer_type == "input" {
             let size = split.next().expect("Missing layer size");
 
-            let size = match size.parse::<usize>() {
-                Ok(size) => size,
+            let size = match size.parse::<NonZeroUsize>() {
+                Ok(size) => usize::from(size),
                 Err(_) => {
                     println!("Invalid layer size: {}", size);
                     return;
@@ -202,16 +204,16 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
             let activation_function = split.next().expect("Missing activation function");
             let size = split.next().expect("Missing layer size");
 
-            let activation_function = match ActivationFunction::from(activation_function) {
-                Some(activation_function) => activation_function,
-                None => {
+            let activation_function: ActivationFunction = match activation_function.parse() {
+                Ok(activation_function) => activation_function,
+                Err(_) => {
                     println!("Invalid activation function: {}", activation_function);
                     return;
                 }
             };
 
-            let size = match size.parse::<usize>() {
-                Ok(size) => size,
+            let size = match size.parse::<NonZeroUsize>() {
+                Ok(size) => usize::from(size),
                 Err(_) => {
                     println!("Invalid layer size: {}", size);
                     return;
@@ -225,7 +227,76 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
                     activation_function,
                 ));
             } else {
-                println!("No previous layer to connect fully connected layer to");
+                println!("No input layer");
+                return;
+            }
+        } else if layer_type == "pool" || layer_type == "pool2d" {
+            let pool_type = split.next().expect("Missing pool type");
+
+            let pool_type: PoolType = match pool_type.parse() {
+                Ok(pool_type) => pool_type,
+                Err(_) => {
+                    println!("Invalid pool type: {}", pool_type);
+                    return;
+                }
+            };
+
+            let pool_params: Vec<_> = split
+                .take(4)
+                .map(|x| match x.parse::<NonZeroUsize>() {
+                    Ok(x) => usize::from(x),
+                    Err(_) => {
+                        println!("Invalid pool size parameter: {}", x);
+                        return 0;
+                    }
+                })
+                .collect();
+
+            let input_width;
+            let input_height;
+            let kernel_width;
+            let kernel_height;
+
+            if pool_params.contains(&0) {
+                return;
+            }
+
+            if pool_params.len() == 2 {
+                input_width = pool_params[0];
+                input_height = pool_params[0];
+                kernel_width = pool_params[1];
+                kernel_height = pool_params[1];
+            } else if pool_params.len() == 4 {
+                input_width = pool_params[0];
+                input_height = pool_params[1];
+                kernel_width = pool_params[2];
+                kernel_height = pool_params[3];
+            } else {
+                println!("Invalid pool parameter length. Should be 2 for square input and kernel or 4 for rectangular input and kernel");
+                return;
+            }
+
+            if let Some(last_layer) = network.layers.last() {
+                if last_layer.size() != input_width * input_height {
+                    println!(
+                        "Invalid input size {} * {} = {}. Previous layer is of size {}.",
+                        input_width,
+                        input_height,
+                        input_width * input_height,
+                        last_layer.size()
+                    );
+                    return;
+                }
+
+                network.add_layer(layer::Pool2D::new(
+                    pool_type,
+                    input_width,
+                    input_height,
+                    kernel_width,
+                    kernel_height,
+                ));
+            } else {
+                println!("No input layer");
                 return;
             }
         } else {
@@ -234,7 +305,7 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
         }
     }
 
-    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
+    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).expect("Unable to encode network");
 
     match io::write_file(&encoded, network_path, true, Some(FILE_EXTENSION)) {
         Err(error) => {
@@ -384,7 +455,7 @@ fn train(
         println!();
     }
 
-    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).unwrap();
+    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).expect("Unable to encode network");
 
     match io::write_file(&encoded, network_path, false, Some(FILE_EXTENSION)) {
         Err(error) => {
