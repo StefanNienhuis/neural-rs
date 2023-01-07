@@ -1,7 +1,9 @@
+mod conv2d;
 mod fully_connected;
 mod input;
 mod pool2d;
 
+pub use conv2d::Conv2D;
 pub use fully_connected::FullyConnected;
 pub use input::Input;
 pub use pool2d::{Pool2D, PoolType};

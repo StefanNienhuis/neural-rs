@@ -5,6 +5,7 @@ pub mod back_propagation;
 pub mod cost_function;
 pub mod layer;
 pub mod network;
+mod util;
 
 pub use self::{
     activation_function::ActivationFunction, cost_function::CostFunction,

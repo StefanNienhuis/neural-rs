@@ -14,24 +14,6 @@ pub struct Pool2D {
     pub kernel_height: usize,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PoolType {
-    MAX,
-    AVERAGE,
-}
-
-impl FromStr for PoolType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "max" => Ok(Self::MAX),
-            "avg" | "average" => Ok(Self::AVERAGE),
-            _ => Err(()),
-        }
-    }
-}
-
 impl Pool2D {
     pub fn new(
         pool_type: PoolType,
@@ -62,6 +44,24 @@ impl Pool2D {
 
     pub fn new_square(pool_type: PoolType, input_size: usize, kernel_size: usize) -> Self {
         Self::new(pool_type, input_size, input_size, kernel_size, kernel_size)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum PoolType {
+    MAX,
+    AVERAGE,
+}
+
+impl FromStr for PoolType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "max" => Ok(Self::MAX),
+            "avg" | "average" => Ok(Self::AVERAGE),
+            _ => Err(()),
+        }
     }
 }
 
@@ -185,7 +185,6 @@ mod tests {
     #[test]
     fn max_feed_forward() {
         let input_image = sample_image();
-
         let input = DVector::from_vec(input_image.data.as_slice().to_vec());
 
         let layer = Pool2D::new_square(PoolType::MAX, 4, 2);
@@ -199,7 +198,6 @@ mod tests {
     #[test]
     fn average_feed_forward() {
         let input_image = sample_image();
-
         let input = DVector::from_vec(input_image.data.as_slice().to_vec());
 
         let layer = Pool2D::new_square(PoolType::AVERAGE, 4, 2);
@@ -216,7 +214,7 @@ mod tests {
 
         let previous_activation = DVector::from_vec(input_image.data.as_slice().to_vec());
         let weighted_input = DVector::from_vec(vec![6.0, 14.0, 8.0, 16.0]);
-        let mut error = DVector::from_vec(vec![4.0, 4.0, 4.0, 4.0]);
+        let mut error = DVector::from_vec(vec![4.0; 4]);
 
         let layer = Pool2D::new_square(PoolType::MAX, 4, 2);
 

@@ -230,6 +230,75 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
                 println!("No input layer");
                 return;
             }
+        } else if layer_type == "conv" || layer_type == "conv2d" {
+            let filter_count = split.next().expect("Missing filter count");
+
+            let filter_count = match filter_count.parse::<NonZeroUsize>() {
+                Ok(filter_count) => usize::from(filter_count),
+                Err(_) => {
+                    println!("Invalid filter count: {}", filter_count);
+                    return;
+                }
+            };
+
+            let conv_params: Vec<_> = split
+                .take(4)
+                .map(|x| match x.parse::<NonZeroUsize>() {
+                    Ok(x) => usize::from(x),
+                    Err(_) => {
+                        println!("Invalid conv size parameter: {}", x);
+                        return 0;
+                    }
+                })
+                .collect();
+
+            let input_width;
+            let input_height;
+            let kernel_width;
+            let kernel_height;
+
+            if conv_params.contains(&0) {
+                return;
+            }
+
+            if conv_params.len() == 2 {
+                input_width = conv_params[0];
+                input_height = conv_params[0];
+                kernel_width = conv_params[1];
+                kernel_height = conv_params[1];
+            } else if conv_params.len() == 4 {
+                input_width = conv_params[0];
+                input_height = conv_params[1];
+                kernel_width = conv_params[2];
+                kernel_height = conv_params[3];
+            } else {
+                println!("Invalid conv parameter length. Should be 2 for square input and kernel or 4 for rectangular input and kernel");
+                return;
+            }
+
+            if let Some(last_layer) = network.layers.last() {
+                if last_layer.size() != input_width * input_height {
+                    println!(
+                        "Invalid input size {} * {} = {}. Previous layer is of size {}.",
+                        input_width,
+                        input_height,
+                        input_width * input_height,
+                        last_layer.size()
+                    );
+                    return;
+                }
+
+                network.add_layer(layer::Conv2D::new(
+                    filter_count,
+                    input_width,
+                    input_height,
+                    kernel_width,
+                    kernel_height,
+                ));
+            } else {
+                println!("No input layer");
+                return;
+            }
         } else if layer_type == "pool" || layer_type == "pool2d" {
             let pool_type = split.next().expect("Missing pool type");
 
@@ -305,7 +374,8 @@ fn create(network_path: &PathBuf, layers: &[String], cost_function: &String) {
         }
     }
 
-    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).expect("Unable to encode network");
+    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard())
+        .expect("Unable to encode network");
 
     match io::write_file(&encoded, network_path, true, Some(FILE_EXTENSION)) {
         Err(error) => {
@@ -455,7 +525,8 @@ fn train(
         println!();
     }
 
-    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard()).expect("Unable to encode network");
+    let encoded: Vec<u8> = bincode::encode_to_vec(network, bincode::config::standard())
+        .expect("Unable to encode network");
 
     match io::write_file(&encoded, network_path, false, Some(FILE_EXTENSION)) {
         Err(error) => {
