@@ -50,6 +50,7 @@
 
 <script lang="ts">
     import { onMount } from 'svelte';
+    import * as IJS from 'image-js';
     import wasmInit, * as wasm from 'wasm';
 
     import DrawCanvas from './DrawCanvas.svelte';
@@ -66,7 +67,6 @@
     let networkReader = new FileReader();
 
     let imagePicker: HTMLInputElement;
-    let imageReader = new FileReader();
 
     let kerningMultiplier = 3;
 
@@ -76,7 +76,6 @@
 
     onMount(async () => {
         networkReader.addEventListener('load', onNetworkLoad);
-        imageReader.addEventListener('load', onImageLoad);
 
         await wasmInit();
 
@@ -108,36 +107,25 @@
         imagePicker.click();
     }
 
-    function onImagePicked() {
+    async function onImagePicked() {
         let file = imagePicker.files[0];
 
         if (file.type != 'image/jpeg' && file.type != 'image/png') {
             console.warn(`Unknown image type: ${file.type}`);
         }
         
-        let image = new Image();
+        let image = await IJS.Image.load(URL.createObjectURL(file));
+        image = image.grey({ algorithm: 'black' as IJS.GreyAlgorithm }).mask().invert();
 
-        image.onload = () => {
-            console.log(image);
-            drawImage(image);
+        let imageElement = new Image();
+
+        imageElement.onload = () => {
+            console.log(imageElement);
+            drawImage(imageElement);
         }
 
-        image.src = URL.createObjectURL(file);
-    }
-
-    function onImageLoad(event: ProgressEvent<FileReader>) {
-        let result = event.target.result as string;
-        
-        let image = new Image();
-
-        image.onload = () => {
-            console.log(image);
-            drawImage(image);
-        }
-
-        console.log(result);
-
-        image.src = result;
+        imageElement.src = image.toDataURL();
+        console.log('pre', imageElement);
     }
 
     function detect() {
