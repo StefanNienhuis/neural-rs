@@ -6,10 +6,10 @@
             <input type="file" bind:this={networkPicker} on:change={onNetworkPicked} style="display: none;" />
         </div>
     
-        <DrawCanvas width={1280} height={720} characterSide={28} {editable} bind:getCharacters={getCharacters} bind:drawImage={drawImage} bind:clear={clearCanvas} />
+        <DrawCanvas width={1280} height={720} characterSide={28} {debug} {editable} bind:getLines={getLines} bind:drawImage={drawImage} bind:clear={clearCanvas} />
 
-        <button on:click={uploadImage}>Upload image</button>
-        <input type="file" accept=".jpg,.jpeg,.png" capture="environment" bind:this={imagePicker} on:change={onImagePicked} style="display: none;" />
+        <button on:click={uploadImage} style="margin-top: 8px;">Upload image</button>
+        <input type="file" accept=".jpg,.jpeg,.png" bind:this={imagePicker} on:change={onImagePicked} style="display: none;" />
     
         <p style="width: 100%; margin: 16px 0; text-align: center;">
             { #if result != null }
@@ -19,15 +19,10 @@
             { /if }
         </p>
     
-        <button on:click={detect} disabled={!editable}>Detect</button>
+        <button on:click={detect}>Detect</button>
         <button on:click={clear} style="margin-top: 4px; margin-bottom: 16px;">Clear</button>
-
-        <div style="width: 100%; margin-top: 16px; text-align: center;">
-            Kerning multiplier: { kerningMultiplier }<br/>
-            <input type="range" bind:value={kerningMultiplier} min={1} max={5} step={0.1}>
-        </div>
     
-        { #if result != null }
+        { #if debug && result != null }
             <table>
                 <thead>
                     <tr>
@@ -45,6 +40,22 @@
                 </tbody>
             </table>
         { /if }
+
+        <div bind:this={debugContainer}></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; position: absolute; left: 0; right: 0; bottom: 0; padding: 8px; gap: 24px;">
+        <div></div>
+
+        <div style="display: flex; gap: 8px;">
+            Kerning multiplier: { kerningMultiplier }
+            <input type="range" bind:value={kerningMultiplier} min={1} max={5} step={0.1}>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <input type="checkbox" id="debug" bind:checked={debug}>
+            <label for="debug">Debug</label>
+        </div>
     </div>
 </div>
 
@@ -57,7 +68,7 @@
 
     import defaultNetworkPath from '../assets/default.nn64';
 
-    let getCharacters: () => (number | number[][])[];
+    let getLines: () => (number | number[][])[][];
     let drawImage: (image: HTMLImageElement) => void;
     let clearCanvas: () => void;
 
@@ -68,10 +79,13 @@
 
     let imagePicker: HTMLInputElement;
 
-    let kerningMultiplier = 3;
+    let kerningMultiplier = 2.5;
 
     let result: (string | number)[];
     let probabilities: number[];
+
+    let debugContainer: HTMLDivElement;
+    let debug = false;
     let editable = true;
 
     onMount(async () => {
@@ -122,31 +136,80 @@
         imageElement.onload = () => {
             console.log(imageElement);
             drawImage(imageElement);
+            editable = false;
         }
 
         imageElement.src = image.toDataURL();
         console.log('pre', imageElement);
     }
 
+    function debugLines(lines: (number | number[][])[][]) {
+        for (let line of lines) {
+            let lineContainer = document.createElement('div');
+
+            for (let character of line) {
+                if (typeof character == 'number') {
+                    let spacing = document.createElement('p');
+
+                    spacing.innerText = `${character}`;
+                    spacing.style.opacity = '50%';
+                    spacing.style.display = 'inline-block';
+
+                    lineContainer.appendChild(spacing);
+                } else {
+                    let characterCanvas = document.createElement('canvas');
+
+                    characterCanvas.width = 140;
+                    characterCanvas.height = 140;
+
+                    let characterContext = characterCanvas.getContext('2d');
+
+                    for (let y = 0; y < character.length; y++) {
+                        let row = character[y];
+
+                        for (let x = 0; x < row.length; x++) {
+                            if (row[x] > 0) {
+                                let intesity = Math.round(255 * (1 - row[x]));
+                                
+                                characterContext.fillStyle = `rgb(${intesity}, ${intesity}, ${intesity})`;
+                                characterContext.fillRect(x * 5, y * 5, 5, 5);
+                            }
+                        }
+                    }
+
+                    lineContainer.appendChild(characterCanvas);
+                }
+            }
+
+            debugContainer.appendChild(lineContainer);
+        }
+    }
+
     function detect() {
         result = [];
         probabilities = [];
 
-        let characters = getCharacters();
-        
-        for (let character of characters) {
-            if (typeof character != 'number') {
-                let data = character as number[][];
-                let transposedData = data.map((_, i) => data.map((r) => r[i]));
-                
-                let output = Array.from(network.feed_forward(new Float64Array(transposedData.flat())).entries());
-                let characterOutput = output.sort(([,p1], [,p2]) => p2 - p1)[0];
+        let lines = getLines();
 
-                result.push(String.fromCharCode(characterOutput[0] + 96));
-                probabilities.push(characterOutput[1]);
-            } else {
-                result.push(character);
+        if (debug) debugLines(lines);
+        
+        for (let line of lines) {
+            for (let character of line) {
+                if (typeof character != 'number') {
+                    let data = character as number[][];
+                    let transposedData = data.map((_, i) => data.map((r) => r[i]));
+                    
+                    let output = Array.from(network.feed_forward(new Float64Array(transposedData.flat())).entries());
+                    let characterOutput = output.sort(([,p1], [,p2]) => p2 - p1)[0];
+
+                    result.push(String.fromCharCode(characterOutput[0] + 96));
+                    probabilities.push(characterOutput[1]);
+                } else {
+                    result.push(character);
+                }
             }
+
+            result.push(Infinity);
         }
     }
 
@@ -166,6 +229,7 @@
         clearCanvas();
         editable = true;
         result = null;
+        debugContainer.innerHTML = '';
     }
 </script>
 

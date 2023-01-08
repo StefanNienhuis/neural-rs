@@ -6,6 +6,7 @@
     export let width: number;
     export let height: number;
     export let characterSide: number;
+    export let debug: boolean;
     export let editable: boolean;
 
     let canvas: HTMLCanvasElement;
@@ -96,12 +97,11 @@
         context.lineWidth = 30;
     }
 
-    export const getCharacters = () => {
-        // TODO: return from DrawCanvas: list of lines -> list of characters (scaled to 28x28) and spacing between
-
+    export const getLines = () => {
         let data = context.getImageData(minX, minY, maxX - minX, maxY - minY);
 
-        // pixels[y][x]
+        // Convert image data to pixel array
+        // Pixel array has shape pixels[y][x]
         let pixels: number[][] = Array(data.height).fill(null).map(() => []);
         
         for (let i = 0; i < data.data.length / 4; i++) {
@@ -111,76 +111,163 @@
             pixels[Math.floor(i / data.width)][i % data.width] = Math.round((1 - grayscale) * alpha);
         }
 
-        let line = pixels;
-        let lineWidth = pixels[0].length;
+        // Extract lines from pixels
+        let lineBounds: [number, number][] = [];
 
-        let characterBounds: [number, number][] = [];
+        let lineStart: number | undefined;
 
-        let characterStart: number | undefined;
-
-        for (let x = 0; x < lineWidth; x++) {
-            if (line.map(row => row[x]).some(intensity => intensity > 0)) {
-                if (characterStart == null) {
-                    characterStart = x;
+        for (let y = 0; y < pixels.length; y++) {
+            if (pixels[y].some(intensity => intensity > 0)) {
+                if (lineStart == null) {
+                    lineStart = y;
                 }
-            } else if (characterStart != null) {
-                characterBounds.push([characterStart, x]);
-                characterStart = null;  
+            } else if (lineStart != null) {
+                lineBounds.push([lineStart, y]);
+                lineStart = null;
             }
         }
 
-        if (characterStart != null) {
-            characterBounds.push([characterStart, lineWidth]);
+        // If last line is not completed, take until last row
+        if (lineStart != null) {
+            lineBounds.push([lineStart, pixels.length]);
         }
 
-        // Array of 2d character arrays and the spacing between those characters
-        let characters: (number[][] | number)[] = [];
+        // List of lines
+        // Each line is a list of characters or spacing between characters
+        // Each character is a 2d array of pixels
+        let lines: (number[][] | number)[][] = [];
 
-        for (let [i, [start, end]] of characterBounds.entries()) {
-            let data = pixels.map((row) => row.filter((_, x) => x >= start && x < end))
-                             .filter((row) => row.some((intensity) => intensity > 0));
-                             
-            let dataWidth = data[0].length;
-            let dataHeight = data.length;
+        for (let [lineStart, lineEnd] of lineBounds) {
+            if (debug) {
+                context.lineWidth = 2;
+                context.strokeStyle = 'red';
 
-            let side = Math.max(dataWidth, dataHeight);
-            side *= 1.2; // Add 10% padding on each side
-            side = Math.round(side);
+                context.beginPath();
+                context.moveTo(0, lineStart + minY);
+                context.lineTo(canvas.width, lineStart + minY);
 
-            if (dataWidth > side || dataHeight > side) {
-                console.error(`Invalid side lengths: ${dataWidth}, ${dataHeight} should be less than square ${side}`);
-                return;
+                context.moveTo(0, lineEnd + minY);
+                context.lineTo(canvas.width, lineEnd + minY);
+                context.closePath();
+
+                context.stroke();
             }
 
-            let xPadding = side - dataWidth;
-            let yPaddding = side - dataHeight;
+            let line = pixels.slice(lineStart, lineEnd);
+            let lineWidth = line[0].length;
 
-            // Apply x padding
-            data = data.map((row) => [
-                ...Array(Math.ceil(xPadding / 2)).fill(0),
-                ...row,
-                ...Array(Math.floor(xPadding / 2)).fill(0)
-            ]);
+            // Extract characters from line
+            let characterBounds: [number, number][] = [];
 
-            // Apply y padding
-            data = [
-                ...Array(Math.ceil(yPaddding / 2)).fill(Array(side).fill(0)),
-                ...data,
-                ...Array(Math.floor(yPaddding / 2)).fill(Array(side).fill(0))
-            ];
+            let characterStart: number | undefined;
+            let characterEnd: number | undefined;
 
-            let scaledData = scaleCharacter(data, side, characterSide);
-            
-            characters.push(scaledData);
-
-            let nextCharacter = characterBounds[i + 1];
-
-            if (nextCharacter != null) {
-                characters.push(nextCharacter[0] - end);
+            for (let x = 0; x < lineWidth; x++) {
+                if (line.map(row => row[x]).some(intensity => intensity > 0)) {
+                    if (characterStart == null) {
+                        characterStart = x;
+                    }
+                } else if (characterStart != null) {
+                    // Allow a 5% margin for missing pixels
+                    if (characterEnd != null && (x - characterEnd) / (characterEnd - characterStart) > 0.05) {
+                        characterBounds.push([characterStart, characterEnd]);
+                        characterStart = null;  
+                        characterEnd = null;
+                    } else if (characterEnd == null) {
+                        characterEnd = x;
+                    }
+                }
             }
+
+            // If last character is not completed, take until last column
+            if (characterStart != null) {
+                characterBounds.push([characterStart, lineWidth]);
+            }
+
+            // Array of 2d character arrays and the spacing between those characters
+            let characters: (number[][] | number)[] = [];
+
+            for (let [i, [start, end]] of characterBounds.entries()) {
+                if (debug) {
+                    context.strokeStyle = 'blue';
+
+                    context.beginPath();
+                    context.moveTo(start + minX, lineStart + minY);
+                    context.lineTo(start + minX, lineEnd + minY);
+
+                    context.moveTo(end + minX, lineStart + minY);
+                    context.lineTo(end + minX, lineEnd + minY);
+                    context.closePath();
+
+                    context.stroke();
+                }
+
+                let data = line.map((row) => row.filter((_, x) => x >= start && x < end));
+
+                let startY = 0, endY = data.length - 1;
+
+                // Remove top and bottom spacing from other characters in line
+                while (data[0].every((x) => x == 0)) { data.shift(); startY++; }
+                while (data[data.length - 1].every((x) => x == 0)) { data.pop(); endY--; }
+
+                if (debug) {
+                    context.strokeStyle = 'green';
+
+                    context.beginPath();
+                    context.moveTo(start + minX, startY + lineStart + minY);
+                    context.lineTo(end + minX, startY + lineStart + minY);
+
+                    context.moveTo(start + minX, endY + lineStart + minY);
+                    context.lineTo(end + minX, endY + lineStart + minY);
+                    context.closePath();
+
+                    context.stroke();
+                }
+                                
+                let dataWidth = data[0].length;
+                let dataHeight = data.length;
+
+                let side = Math.max(dataWidth, dataHeight);
+                side *= 1.2; // Add 10% padding on each side
+                side = Math.round(side);
+
+                if (dataWidth > side || dataHeight > side) {
+                    console.error(`Invalid side lengths: ${dataWidth}, ${dataHeight} should be less than square ${side}`);
+                    return;
+                }
+
+                let xPadding = side - dataWidth;
+                let yPaddding = side - dataHeight;
+
+                // Apply x padding
+                data = data.map((row) => [
+                    ...Array(Math.ceil(xPadding / 2)).fill(0),
+                    ...row,
+                    ...Array(Math.floor(xPadding / 2)).fill(0)
+                ]);
+
+                // Apply y padding
+                data = [
+                    ...Array(Math.ceil(yPaddding / 2)).fill(Array(side).fill(0)),
+                    ...data,
+                    ...Array(Math.floor(yPaddding / 2)).fill(Array(side).fill(0))
+                ];
+
+                let scaledData = scaleCharacter(data, side, characterSide);
+                
+                characters.push(scaledData);
+
+                let nextCharacter = characterBounds[i + 1];
+
+                if (nextCharacter != null) {
+                    characters.push(nextCharacter[0] - end);
+                }
+            }
+
+            lines.push(characters);
         }
 
-        return characters;
+        return lines;
     }
 
     function scaleCharacter(data: number[][], side: number, scaledSide: number) {
