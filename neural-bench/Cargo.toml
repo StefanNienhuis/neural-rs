@@ -1,0 +1,11 @@
+[package]
+name = "neural-bench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+neural = { path = "../neural" }
+csv = "1.1.6"
+neural-utils = { path = "../neural-utils" }

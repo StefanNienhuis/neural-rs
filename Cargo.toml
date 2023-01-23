@@ -2,5 +2,7 @@
 members = [
     "neural",
     "neural-cli",
-    "neural-emnist"
+    "neural-emnist",
+    "neural-bench",
+    "neural-utils"
 ]

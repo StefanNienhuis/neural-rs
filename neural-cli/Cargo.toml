@@ -9,6 +9,7 @@ repository = "https://github.com/StefanNienhuis/neural-rs.git"
 
 [dependencies]
 neural = { path = "../neural" }
+neural-utils = { path = "../neural-utils" }
 bincode = { version = "2.0.0-rc.1", features = [ "derive" ] }
 byteorder = "1.4.3"
 clap = { version = "3.2.6", features = [ "derive" ] }

@@ -1,10 +1,8 @@
-mod idx;
-mod io;
-
 use bincode;
 use clap::{ArgAction, Parser, Subcommand};
 use neural::layer::PoolType;
 use neural::{layer, ActivationFunction, CostFunction, Float, Network};
+use neural_utils::{io, outputs_from_labels};
 use rand::seq::SliceRandom;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -618,24 +616,4 @@ fn evaluate(network_path: &PathBuf, input_path: &PathBuf, output_path: &Option<P
             println!("{:>2}: {:.2}%", i + 1, p * 100.0);
         }
     }
-}
-
-fn outputs_from_labels(network: &Network, labels: Vec<Vec<u8>>) -> Vec<Vec<Float>> {
-    let labels_len = labels[0].len();
-
-    labels
-        .into_iter()
-        .map(|label| {
-            return if labels_len == 1 && network.shape()[0] != 1 {
-                let mut output = vec![0.0; network.shape().last().unwrap().clone()];
-                output[usize::from(label[0])] = 1.0;
-                output
-            } else {
-                label
-                    .into_iter()
-                    .map(|x| Float::from(x) / 255.0)
-                    .collect::<Vec<_>>()
-            };
-        })
-        .collect()
 }

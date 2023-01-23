@@ -1,7 +1,7 @@
 use crate::{
-    idx::{self, IDXFile},
-    Network,
+    idx::{self, IDXFile}
 };
+use neural::Network;
 use std::fs;
 
 use bincode;
