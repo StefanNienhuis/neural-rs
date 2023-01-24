@@ -1,7 +1,7 @@
 use bincode;
 use clap::{ArgAction, Parser, Subcommand};
 use neural::layer::PoolType;
-use neural::{layer, ActivationFunction, CostFunction, Float, Network};
+use neural::{layer, ActivationFunction, CostFunction, Float, Network, Layer};
 use neural_utils::{io, outputs_from_labels};
 use rand::seq::SliceRandom;
 use std::num::NonZeroUsize;

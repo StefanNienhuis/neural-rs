@@ -1,4 +1,4 @@
-use crate::{CostFunction, Float, Layer};
+use crate::{CostFunction, Float, Layer, LayerEnum};
 
 use nalgebra::DVector;
 
@@ -6,7 +6,7 @@ use nalgebra::DVector;
 pub struct Network {
     /// The layers in the network.
     #[bincode(with_serde)]
-    pub layers: Vec<Box<dyn Layer>>,
+    pub layers: Vec<LayerEnum>,
 
     /// The cost function for the network.
     pub cost_function: CostFunction,
@@ -21,7 +21,7 @@ impl Network {
     }
 
     pub fn add_layer<L: Layer + Clone + 'static>(&mut self, layer: L) {
-        self.layers.push(Box::new(layer));
+        self.layers.push(layer.erased());
     }
 
     pub fn shape(&self) -> Vec<usize> {

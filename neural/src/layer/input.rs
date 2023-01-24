@@ -1,4 +1,4 @@
-use crate::{Float, Layer};
+use crate::{Float, Layer, LayerEnum};
 
 use crate::layer::BackpropagationResult;
 use nalgebra::DVector;
@@ -16,8 +16,10 @@ impl Input {
     }
 }
 
-#[typetag::serde]
 impl Layer for Input {
+
+    fn erased(self) -> LayerEnum { LayerEnum::Input(self) }
+
     fn trainable(&self) -> bool {
         false
     }

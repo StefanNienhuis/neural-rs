@@ -1,4 +1,4 @@
-use crate::{Float, Network};
+use crate::{Float, Network, Layer};
 
 use crate::layer::BackpropagationResult;
 use nalgebra::DVector;

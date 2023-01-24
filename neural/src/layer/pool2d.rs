@@ -1,4 +1,4 @@
-use crate::{BackpropagationResult, Float, Layer};
+use crate::{BackpropagationResult, Float, Layer, LayerEnum};
 use nalgebra::{DMatrix, DVector};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -65,8 +65,10 @@ impl Pool2D {
     }
 }
 
-#[typetag::serde]
 impl Layer for Pool2D {
+
+    fn erased(self) -> LayerEnum { LayerEnum::Pool2D(self) }
+
     fn trainable(&self) -> bool {
         false
     }

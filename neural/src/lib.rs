@@ -8,7 +8,7 @@ pub mod network;
 
 pub use self::{
     activation_function::ActivationFunction, cost_function::CostFunction,
-    layer::BackpropagationResult, layer::Layer, network::Network,
+    layer::BackpropagationResult, layer::Layer, layer::LayerEnum, network::Network,
 };
 
 #[cfg(feature = "high-precision")]

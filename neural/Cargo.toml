@@ -12,7 +12,6 @@ rand = "0.8.5"
 rand_distr = "0.4.3"
 serde = "1.0.145"
 bincode = { version = "2.0.0-rc.1", features = ["serde"] }
-typetag = "0.2.3"
 nalgebra = { version = "0.31.0", features = ["serde-serialize"] }
 crossbeam-utils = { version = "0.8.10", optional = true }
 

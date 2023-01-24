@@ -1,4 +1,4 @@
-use crate::{layer::BackpropagationResult, ActivationFunction, Float, Layer};
+use crate::{layer::BackpropagationResult, ActivationFunction, Float, Layer, LayerEnum};
 
 use nalgebra::{DMatrix, DVector};
 use rand::thread_rng;
@@ -32,8 +32,10 @@ impl FullyConnected {
     }
 }
 
-#[typetag::serde]
 impl Layer for FullyConnected {
+
+    fn erased(self) -> LayerEnum { LayerEnum::FullyConnected(self) }
+
     fn trainable(&self) -> bool {
         true
     }
