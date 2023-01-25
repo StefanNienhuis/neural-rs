@@ -151,6 +151,9 @@
                 context.closePath();
 
                 context.stroke();
+
+				context.strokeStyle = 'black';
+				context.lineWidth = 30;
             }
 
             let line = pixels.slice(lineStart, lineEnd);
@@ -189,6 +192,7 @@
 
             for (let [i, [start, end]] of characterBounds.entries()) {
                 if (debug) {
+                	context.lineWidth = 2;
                     context.strokeStyle = 'blue';
 
                     context.beginPath();
@@ -200,6 +204,9 @@
                     context.closePath();
 
                     context.stroke();
+
+					context.strokeStyle = 'black';
+					context.lineWidth = 30;
                 }
 
                 let data = line.map((row) => row.filter((_, x) => x >= start && x < end));
@@ -211,6 +218,7 @@
                 while (data[data.length - 1].every((x) => x == 0)) { data.pop(); endY--; }
 
                 if (debug) {
+                	context.lineWidth = 2;
                     context.strokeStyle = 'green';
 
                     context.beginPath();
@@ -222,6 +230,9 @@
                     context.closePath();
 
                     context.stroke();
+
+					context.strokeStyle = 'black';
+					context.lineWidth = 30;
                 }
                                 
                 let dataWidth = data[0].length;
@@ -317,6 +328,7 @@
 
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = 'black';
+        context.strokeStyle = 'black';
         context.lineWidth = 30;
 
         minX = width;
