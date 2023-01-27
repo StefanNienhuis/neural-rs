@@ -9,6 +9,8 @@
     export let debug: boolean;
     export let editable: boolean;
 
+    const LINE_WIDTH = 20;
+
     let canvas: HTMLCanvasElement;
     let context: CanvasRenderingContext2D;
     let mouseDown = false;
@@ -22,7 +24,7 @@
     
     onMount(() => {
         context = canvas.getContext('2d');
-        context.lineWidth = 30;
+        context.lineWidth = LINE_WIDTH;
 
         canvas.addEventListener('mousedown', (event) => drawStart(event.clientX, event.clientY));
         canvas.addEventListener('mousemove', (event) => draw(event.clientX, event.clientY));
@@ -57,10 +59,10 @@
         let x = mouseX - canvasRect.left;
         let y = mouseY - canvasRect.top;
 
-        if (x - 15 <= minX) minX = x - 15;
-        if (x + 15 >= maxX) maxX = x + 15;
-        if (y - 15 <= minY) minY = y - 15;
-        if (y + 15 >= maxY) maxY = y + 15;
+        if (x - (LINE_WIDTH / 2) <= minX) minX = x - (LINE_WIDTH / 2);
+        if (x + (LINE_WIDTH / 2) >= maxX) maxX = x + (LINE_WIDTH / 2);
+        if (y - (LINE_WIDTH / 2) <= minY) minY = y - (LINE_WIDTH / 2);
+        if (y + (LINE_WIDTH / 2) >= maxY) maxY = y + (LINE_WIDTH / 2);
 
         if (lastX != null && lastY != null) {
             context.beginPath();
@@ -74,7 +76,7 @@
 
         context.beginPath();
 
-        context.arc(x, y, 15, 0, 2 * Math.PI);
+        context.arc(x, y, LINE_WIDTH / 2, 0, 2 * Math.PI);
         context.fill();
 
         context.closePath();
@@ -94,7 +96,7 @@
         maxY = canvas.height;
         
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        context.lineWidth = 30;
+        context.lineWidth = LINE_WIDTH;
     }
 
     export const getLines = () => {
@@ -153,7 +155,7 @@
                 context.stroke();
 
 				context.strokeStyle = 'black';
-				context.lineWidth = 30;
+				context.lineWidth = LINE_WIDTH;
             }
 
             let line = pixels.slice(lineStart, lineEnd);
@@ -206,7 +208,7 @@
                     context.stroke();
 
 					context.strokeStyle = 'black';
-					context.lineWidth = 30;
+					context.lineWidth = LINE_WIDTH;
                 }
 
                 let data = line.map((row) => row.filter((_, x) => x >= start && x < end));
@@ -232,7 +234,7 @@
                     context.stroke();
 
 					context.strokeStyle = 'black';
-					context.lineWidth = 30;
+					context.lineWidth = LINE_WIDTH;
                 }
                                 
                 let dataWidth = data[0].length;
@@ -329,7 +331,7 @@
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = 'black';
         context.strokeStyle = 'black';
-        context.lineWidth = 30;
+        context.lineWidth = LINE_WIDTH;
 
         minX = width;
         minY = height;
