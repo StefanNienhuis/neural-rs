@@ -84,7 +84,7 @@
     }
 
     export const drawImage = (image: HTMLImageElement) => {
-        let scaleFactor = Math.min(image.width / width, image.height / height);
+        let scaleFactor = Math.max(image.width / width, image.height / height);
         canvas.width = image.width / scaleFactor;
         canvas.height = image.height / scaleFactor;
 

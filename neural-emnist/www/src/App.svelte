@@ -1,26 +1,36 @@
-<div class="container">
-    <div style="display: flex; flex-direction: column; width: 1282px;">
+<div class={`container ${demo ? 'demo' : ''}`}>
+    <div class="main" style="display: flex; flex-direction: column; width: 1282px;">
         <div style="margin: 8px 0;">
             <p style="float: left; margin: 0;">{ networkName ?? `Default network` }</p>
             <button on:click={upload} style="float: right;">Upload custom</button>
             <input type="file" bind:this={networkPicker} on:change={onNetworkPicked} style="display: none;" />
         </div>
-    
-        <DrawCanvas width={1280} height={720} characterSide={28} {debug} {editable} bind:getLines={getLines} bind:drawImage={drawImage} bind:clear={clearCanvas} />
 
-        <button on:click={uploadImage} style="margin-top: 8px;">Upload image</button>
-        <input type="file" accept=".jpg,.jpeg,.png" bind:this={imagePicker} on:change={onImagePicked} style="display: none;" />
+        <div class="demo-header" style="display: none; margin-bottom: 32px;">
+            <h1 style="margin-bottom: 8px;">Demo</h1>
+            <div style="width: 96px; height: 7px; background-color: #3C79F5;"></div>
+        </div>
     
-        <p style="width: 100%; margin: 16px 0; text-align: center;">
+        <div class="canvas">
+            <DrawCanvas width={1280} height={720} characterSide={28} {debug} {editable} bind:getLines={getLines} bind:drawImage={drawImage} bind:clear={clearCanvas} />
+        </div>
+
+    
+        <p class="info" style="width: 100%; margin: 16px 0; text-align: center; white-space: pre-line;">
             { #if result != null }
-                Result: { result.map((v) => typeof v == 'number' ? v > medianKerning() * kerningMultiplier ? ' ' : '' : v).join('') }
+                {demo ? 'Resultaat' : 'Result'}: { result.map((v) => typeof v == 'number' ? v != Infinity ? (v > medianKerning() * kerningMultiplier ? ' ' : '') : '\n' : v).join('') }
             { :else }
-                Press detect to recognize the text
+                { demo ? 'Klik op \'Herken\' om de tekst te herkennen' : 'Press detect to recognize the text' }
             { /if }
         </p>
     
-        <button on:click={detect}>Detect</button>
-        <button on:click={clear} style="margin-top: 4px; margin-bottom: 16px;">Clear</button>
+        <div class="buttons" style="display: flex; justify-content: center; width: 100%; margin-top: 8px; margin-bottom: 16px; gap: 8px;">
+            <button class="button" on:click={uploadImage}>{demo ? 'Afbeelding uploaden' : 'Upload image'}</button>
+            <button class="button" on:click={detect}>{demo ? 'Herken' : 'Detect'}</button>
+            <button class="button" on:click={clear}>Reset</button>
+        </div>
+
+        <input type="file" accept=".jpg,.jpeg,.png" bind:this={imagePicker} on:change={onImagePicked} style="display: none;" />
     
         { #if debug && result != null }
             <table>
@@ -44,7 +54,7 @@
         <div bind:this={debugContainer}></div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; position: absolute; left: 0; right: 0; bottom: 0; padding: 8px; gap: 24px;">
+    <div class="tools" style="display: flex; justify-content: space-between; align-items: center; position: absolute; left: 0; right: 0; bottom: 0; padding: 8px; gap: 24px;">
         <div></div>
 
         <div style="display: flex; gap: 8px;">
@@ -55,8 +65,13 @@
         <div style="display: flex; gap: 8px;">
             <input type="checkbox" id="debug" bind:checked={debug}>
             <label for="debug">Debug</label>
+
+            <input type="checkbox" id="demo" bind:checked={demo}>
+            <label for="demo">Demo</label>
         </div>
     </div>
+
+    <div class="exit-demo" style="display: none; position: absolute; right: 2px; bottom: 2px; cursor: pointer; opacity: 0.3;" on:click={() => demo = false}>Demo sluiten</div>
 </div>
 
 <script lang="ts">
@@ -87,6 +102,8 @@
     let debugContainer: HTMLDivElement;
     let debug = false;
     let editable = true;
+
+    let demo = true;
 
     onMount(async () => {
         networkReader.addEventListener('load', onNetworkLoad);
@@ -196,6 +213,7 @@
         for (let line of lines) {
             for (let character of line) {
                 if (typeof character != 'number') {
+                    // Character
                     let data = character as number[][];
                     let transposedData = data.map((_, i) => data.map((r) => r[i]));
                     
@@ -205,10 +223,12 @@
                     result.push(String.fromCharCode(characterOutput[0] + 96));
                     probabilities.push(characterOutput[1]);
                 } else {
+                    // Space
                     result.push(character);
                 }
             }
 
+            // Newline
             result.push(Infinity);
         }
     }
@@ -234,6 +254,17 @@
 </script>
 
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap');
+
+    * {
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    h1 {
+        font-size: 48px;
+        font-weight: 600;
+    }
+
     .container {
         width: 100vw;
         height: 100vh;
@@ -253,5 +284,35 @@
         width: 10%;
         border: 1px solid black;
         text-align: center;
+    }
+
+    .demo .main > * {
+        display: none !important;
+    }
+
+    .demo .tools {
+        display: none !important;
+    }
+
+    .demo .main > .demo-header,
+    .demo .main > .canvas,
+    .demo .main > .info,
+    .demo .exit-demo {
+        display: block !important;
+    } 
+
+    .demo .main > .buttons {
+        display: flex !important;
+    }
+
+    .demo .button {
+        width: 256px;
+        height: 48px;
+        border: none;
+        color: white;
+        background-color: #3C79F5;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
     }
 </style>
